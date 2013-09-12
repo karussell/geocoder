@@ -1,0 +1,17 @@
+{
+    "poi" : {
+        "_all" : {
+            "enabled" : false
+        },
+        "properties": {
+            "title" : {
+                "type" : "string"
+            },
+            "point": {
+                "location" : {
+                    "type": "geo_point"                
+                }                
+            }
+        }
+    }
+}
