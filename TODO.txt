@@ -1,0 +1,4 @@
+ * fixing failed to add messages
+ * problem if several threads/processes are using SortingWriter -> this should include a random or unique number
+   File file = new File(tempDir, "bucket-" + bucketNr + ".gz");
+   
