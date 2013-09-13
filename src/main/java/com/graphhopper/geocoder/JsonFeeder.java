@@ -1,8 +1,6 @@
 package com.graphhopper.geocoder;
 
 import com.github.jillesvangurp.osm2geojson.OsmPostProcessor;
-import com.github.jillesvangurp.osm2geojson.OsmPostProcessor.JsonWriter;
-import com.github.jillesvangurp.osm2geojson.OsmPostProcessor.OsmType;
 import com.github.jsonj.JsonArray;
 import com.github.jsonj.JsonElement;
 import com.github.jsonj.JsonObject;
@@ -15,7 +13,9 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
@@ -25,7 +25,6 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.StopWatch;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
@@ -61,19 +60,22 @@ public class JsonFeeder {
 
     public JsonFeeder() {
     }
-    
+
     public JsonFeeder setConfiguration(Configuration configuration) {
         this.conf = configuration;
         return this;
     }
 
     public void setClient(Client client) {
+        if (client == null)
+            throw new IllegalArgumentException("client cannot be null");
+
         this.client = client;
     }
 
     public void start() {
         // "failed to get node info for..." -> wrong elasticsearch version for client vs. server
-        
+
         String cluster = conf.getElasticSearchCluster();
         String host = conf.getElasticSearchHost();
         int port = conf.getElasticSearchPort();
@@ -82,38 +84,15 @@ public class JsonFeeder {
     }
 
     public void feed() {
-        final int bulkSize = 1000;
         initIndices();
 
-        OsmPostProcessor processor = new OsmPostProcessor(new JsonParser()) {
-            StopWatch sw = new StopWatch().start();
-            long counter = 0;
-
+        OsmPostProcessor processor = new MyOsmPostProcessor(new JsonParser()) {
             @Override
-            protected JsonWriter createJsonWriter(OsmType type) throws IOException {
-                final String tmpType = type.toString().toLowerCase();
-                return new JsonWriter() {
-                    List<JsonObject> list = new ArrayList<JsonObject>(bulkSize);
-
-                    @Override
-                    public void add(JsonObject json) throws IOException {
-                        list.add(json);
-                        if (list.size() >= bulkSize) {
-                            counter += list.size();
-                            sw.stop();
-                            logger.info("took: " + (float) sw.totalTime().getSeconds() / counter);
-                            sw.start();
-                            bulkUpdate(list, tmpType, tmpType);
-                            list.clear();
-                        }
-                    }
-
-                    @Override
-                    public void close() throws IOException {
-                    }
-                };
+            public Collection<Integer> bulkUpdate(Collection<JsonObject> objects, String indexName, String indexType) {
+                return JsonFeeder.this.bulkUpdate(objects, indexName, indexType);
             }
-        };
+        }.setBulkSize(conf.getFeedBulkSize());
+        processor.setDirectory(conf.getIndexDir());
         processor.processNodes();
         processor.processWays();
     }
@@ -200,15 +179,21 @@ public class JsonFeeder {
                     throw new IllegalStateException("wrong geometry format:" + key + " -> " + el.toString());
                 }
             } else if (key.equalsIgnoreCase("categories")) {
-                b.field("categories", el.asObject().getArray("osm"));
+                b.field("categories", toMap(el.asObject().getObject("osm")));
             } else if (key.equalsIgnoreCase("title")) {
                 b.field("title", el.asString());
             } else if (key.equalsIgnoreCase("address")) {
                 // object ala {"housenumber":"555","street":"5th Avenue"}
-                b.field("address", el);
+                b.field("address", toMap(el.asObject()));
             } else if (key.equalsIgnoreCase("links")) {
                 // array ala  [{"href":"http://www.fairwaymarket.com/"}]
-                b.field("links", el);
+                // ignore b.field("links", el);
+            } else if (key.equalsIgnoreCase("population")) {
+                try {
+                    long val = Long.parseLong(el.asString());
+                    b.field("population", val);
+                } catch (NumberFormatException ex) {
+                }
             } else {
                 b.field(key, el);
                 logger.warn("Not explicitely supported " + el.type() + ": " + key + " -> " + el.toString());
@@ -217,6 +202,24 @@ public class JsonFeeder {
 
         b.endObject();
         return b;
+    }
+
+    String[] toArray(JsonArray arr) {
+        String[] res = new String[arr.size()];
+        int i = 0;
+        for (String s : arr.asStringArray()) {
+            res[i] = s;
+            i++;
+        }
+        return res;
+    }
+
+    Map<String, Object> toMap(JsonObject obj) {
+        Map<String, Object> res = new HashMap<String, Object>(obj.size());
+        for (Entry<String, JsonElement> e : obj.entrySet()) {
+            res.put(e.getKey(), e.getValue().asString());
+        }
+        return res;
     }
 
     public void initIndices() {

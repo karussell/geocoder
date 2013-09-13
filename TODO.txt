@@ -1,3 +1,28 @@
+* how to associate street to city? or is it already done?
+* try querying ala "user input*"
+  try feeding for for germany, europe, ww
+  integrate into graphhopper enterprise -> /geocoder?input=blup&autocomplete=true&reverse=false
+      edge-ngrams and match prefix queries
+        http://www.elasticsearch.org/guide/reference/query-dsl/prefix-query/
+        http://www.elasticsearch.org/guide/reference/query-dsl/match-query/
+        http://www.elasticsearch.org/guide/reference/index-modules/analysis/edgengram-tokenizer/
+
+      via fuzzy search
+        http://www.elasticsearch.org/guide/reference/query-dsl/fuzzy-query/
+      
+      via facets -> ElasticTweetSearch.getQueryChoices -> context dependent autocomplete!
+            split the query into “completed” terms and one “to do” term. E.g. if you enter “michael jack”. Then michael is complete (ends with space) and jack should be completed. set the query term of the old query to michael and add the facet.prefix=jack            
+
+  prefer bigger cities
+  check if simple city queries work
+  see nominatim issues and http://klauszanders.de/blog/2012/10/15/how-to-start-your-own-geocoder-in-48-hours/
+  autocomplete
+    http://www.devbridge.com/projects/autocomplete/jquery/#how-to-use
+        https://github.com/devbridge/jQuery-Autocomplete
+        http://designshack.net/articles/javascript/create-a-simple-autocomplete-with-html5-jquery/
+    https://github.com/dyve/jquery-autocomplete
+    http://jqueryui.com/autocomplete/
+
  * fixing "failed to add" messages
  * problem if several threads/processes are using SortingWriter -> this should include a random or unique number
    File file = new File(tempDir, "bucket-" + bucketNr + ".gz");

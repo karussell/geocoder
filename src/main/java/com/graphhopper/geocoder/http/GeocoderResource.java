@@ -1,8 +1,9 @@
 package com.graphhopper.geocoder.http;
 
-import com.github.jsonj.JsonObject;
 import com.google.inject.Inject;
 import com.graphhopper.geocoder.QueryHandler;
+import java.util.HashMap;
+import java.util.Map;
 import javax.ws.rs.GET;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
@@ -17,19 +18,19 @@ import org.elasticsearch.search.SearchHit;
  * @author Peter Karich
  */
 @Produces(MediaType.APPLICATION_JSON)
-@javax.ws.rs.Path("/geocoding")
+@javax.ws.rs.Path("/geocoder")
 public class GeocoderResource {
 
     @Inject
     private QueryHandler queryHandler;
 
     @GET
-    public JsonObject getGeocode(@QueryParam("name") String address) {
+    public Map<String, Object> getGeocode(@QueryParam("q") String address, @QueryParam("complete") boolean autocomplete) {
         SearchResponse rsp = queryHandler.doRequest(address);
-        JsonObject json = new JsonObject();
+        Map<String, Object> json = new HashMap<String, Object>();
         int i = 0;
         for (SearchHit sh : rsp.getHits().getHits()) {
-            json.put("h" + i, sh.getSourceAsString());
+            json.put("h" + i++, sh.getSource());
         }
         json.put("hits", rsp.getHits().getTotalHits());
         return json;

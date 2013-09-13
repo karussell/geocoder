@@ -21,6 +21,13 @@ public class Configuration {
     private volatile boolean autoReload = false;
     private static final String appName = "geocoder";
 
+    public String getIndexDir() {
+        String value = get(appName + ".indexdir");
+        if (value == null)
+            return "./";
+        return value;
+    }
+
     public String getElasticSearchHost() {
         String value = get(appName + ".elasticsearch.url");
         if (value == null)
@@ -39,6 +46,13 @@ public class Configuration {
         String value = get(appName + ".elasticsearch.port");
         if (value == null)
             return 9300;
+        return Integer.parseInt(value);
+    }
+
+    public int getFeedBulkSize() {
+        String value = get(appName + ".elasticsearch.bulksize");
+        if (value == null)
+            return 1000;
         return Integer.parseInt(value);
     }
 

@@ -43,7 +43,7 @@ public class JsonFeederTest extends AbstractNodesTests {
         closeAllNodes();
     }
 
-    @BeforeTest
+    @BeforeMethod
     public void setUp() {
         feeder = new JsonFeeder();
         feeder.setClient(client);

@@ -50,7 +50,7 @@ public class HttpServerMain {
 //        sslFactory.setKeyStorePath("src/main/resources/spdy.keystore");
 //        sslFactory.setKeyStorePassword("whatacomplexthingtodo");
 
-        int httpPort = 9000, sslPort = 8443, spdyPort = 9443;
+        int httpPort = 8999, sslPort = 8442, spdyPort = 9442;
         SelectChannelConnector connector0 = new SelectChannelConnector();
         connector0.setPort(httpPort);
         server.addConnector(connector0);
