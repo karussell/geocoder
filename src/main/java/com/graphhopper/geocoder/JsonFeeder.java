@@ -7,6 +7,7 @@ import com.github.jsonj.JsonArray;
 import com.github.jsonj.JsonElement;
 import com.github.jsonj.JsonObject;
 import com.github.jsonj.tools.JsonParser;
+import com.google.inject.Inject;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,7 +40,8 @@ import org.slf4j.LoggerFactory;
 public class JsonFeeder {
 
     public static void main(String[] args) {
-        new JsonFeeder().start();
+        Configuration config = new Configuration().reload();
+        new JsonFeeder().setConfiguration(config).start();
     }
 
     public static Client createClient(String cluster, String url, int port) {
@@ -54,6 +56,16 @@ public class JsonFeeder {
     private String wayType = "way";
     private String poiIndex = "poi";
     private String wayIndex = "way";
+    @Inject
+    private Configuration conf;
+
+    public JsonFeeder() {
+    }
+    
+    public JsonFeeder setConfiguration(Configuration configuration) {
+        this.conf = configuration;
+        return this;
+    }
 
     public void setClient(Client client) {
         this.client = client;
@@ -61,10 +73,10 @@ public class JsonFeeder {
 
     public void start() {
         // "failed to get node info for..." -> wrong elasticsearch version for client vs. server
-        // String cluster = "graphhopper";
-        String cluster = "elasticsearch";
-        String host = "localhost";
-        int port = 9300;
+        
+        String cluster = conf.getElasticSearchCluster();
+        String host = conf.getElasticSearchHost();
+        int port = conf.getElasticSearchPort();
         setClient(createClient(cluster, host, port));
         feed();
     }

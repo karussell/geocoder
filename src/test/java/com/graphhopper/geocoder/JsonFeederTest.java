@@ -14,9 +14,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.geo.builders.ShapeBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.testng.annotations.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import org.elasticsearch.index.query.QueryBuilders;
 import static org.hamcrest.Matchers.*;
@@ -32,6 +30,8 @@ public class JsonFeederTest extends AbstractNodesTests {
     private String wayType = "way";
     private String poiIndex = "poi";
     private String poiType = "poi";
+    private JsonFeeder feeder;
+    private QueryHandler queryHandler;
 
     @BeforeClass public void createNodes() throws Exception {
         startNode("node1");
@@ -43,12 +43,16 @@ public class JsonFeederTest extends AbstractNodesTests {
         closeAllNodes();
     }
 
-    @Test
-    public void testFeedPoint() {
-        JsonFeeder feeder = new JsonFeeder();
+    @BeforeTest
+    public void setUp() {
+        feeder = new JsonFeeder();
         feeder.setClient(client);
         feeder.initIndices();
+        queryHandler = new QueryHandler().setClient(client);
+    }
 
+    @Test
+    public void testFeedPoint() {
         List<JsonObject> list = new ArrayList<JsonObject>();
         JsonArray coordinates = array(-11, 11);
         JsonObject geo = $(_("type", "Point"), _("coordinates", coordinates));
@@ -59,13 +63,10 @@ public class JsonFeederTest extends AbstractNodesTests {
         refresh(poiIndex);
         assertThat(client.prepareCount(poiIndex).execute().actionGet().getCount(), equalTo(1L));
 
-        QueryBuilder builder = QueryBuilders.queryString("today").
-                defaultField("title").
-                defaultOperator(QueryStringQueryBuilder.Operator.AND);
-        SearchResponse rsp = client.prepareSearch(poiIndex).setTypes(poiType).setQuery(builder).execute().actionGet();
+        SearchResponse rsp = queryHandler.doRequest("today");
         assertThat(rsp.getHits().getTotalHits(), equalTo(1L));
     }
-    
+
 //    {"id":"osmway/100198671","title":"Depaula Chevrolet Hummer",
 //       "geometry":{"type":"Polygon","coordinates":[[[-73.7882444,42.6792747],[-73.7880386,42.6790894],[-73.7880643,42.6790714],[-73.7879537,42.6789736],[-73.7877787,42.6789659],[-73.7876115,42.6790637],[-73.7876423,42.6790997],[-73.787156,42.6794008],[-73.7870608,42.6793184],[-73.7866569,42.6795603],[-73.7869734,42.6798459],[-73.78703,42.6798124],[-73.7871689,42.6799385],[-73.7882444,42.6792747]]]},
 //       "categories":{"osm":["building:yes","shop:car","building"]},
@@ -73,10 +74,6 @@ public class JsonFeederTest extends AbstractNodesTests {
 //    }
     @Test
     public void testFeedLineString() {
-        JsonFeeder feeder = new JsonFeeder();
-        feeder.setClient(client);
-        feeder.initIndices();
-
         List<JsonObject> list = new ArrayList<JsonObject>();
         JsonArray coordinates = array();
         coordinates.add(array(11, 11));
