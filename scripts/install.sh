@@ -1,10 +1,12 @@
+MVN=mvn
+
 # efficientstring 1.10
 DIR=efficientstring
 if [ ! -d "$DIR" ]; then
   git clone https://github.com/jillesvangurp/$DIR
   cd $DIR
   git checkout 2712624061
-  mvn clean install
+  $MVN clean install
   cd ..
 fi
 
@@ -14,7 +16,7 @@ if [ ! -d "$DIR" ]; then
   git clone https://github.com/jillesvangurp/$DIR
   cd $DIR
   git checkout 2a1b775b8a
-  mvn clean install 
+  $MVN clean install 
   cd ..
 fi
 
@@ -25,7 +27,7 @@ if [ ! -d "$DIR" ]; then
   cd $DIR
   git checkout c3570e108e2
   sed -i 's/1\.28/1\.29/g' pom.xml
-  mvn clean install 
+  $MVN clean install 
   cd ..
 fi
 
@@ -35,6 +37,6 @@ if [ ! -d "$DIR" ]; then
   git clone https://github.com/jillesvangurp/$DIR
   cd $DIR
   git checkout 80098c61d50
-  mvn clean install 
+  $MVN clean install 
   cd ..
 fi
