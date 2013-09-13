@@ -36,7 +36,6 @@ DIR=osm2geojson
 if [ ! -d "$DIR" ]; then
   git clone https://github.com/karussell/$DIR
   cd $DIR
-  git checkout 80098c61d50
   $MVN clean install 
   cd ..
 fi
