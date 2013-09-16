@@ -23,10 +23,6 @@
                 "tree": "quadtree",
                 "precision": "50m"
             },
-            "tags" : {
-                "type" : "string",  
-                "index" : "not_analyzed"
-            },
             "address" : {
                 "properties" : {
                     "full" : {

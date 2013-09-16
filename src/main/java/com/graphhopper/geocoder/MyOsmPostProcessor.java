@@ -34,7 +34,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         return this;
     }
 
-    public Collection<Integer> bulkUpdate(Collection<JsonObject> objects, String indexName, String indexType) {
+    public Collection<Integer> bulkUpdate(List<JsonObject> objects, String indexName, String indexType) {
         return Collections.EMPTY_LIST;
     }
 
@@ -75,7 +75,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             String value = entry.getValue().asString();
             if (tagName.startsWith("addr:")) {
                 // http://wiki.openstreetmap.org/wiki/Key:addr                
-                String addrKey = entry.getKey().substring(5);                
+                String addrKey = entry.getKey().substring(5);
                 // skip not necessary address data
                 if (addrKey.equals("interpolation") || addrKey.equals("inclusion"))
                     // TODO use them to associate numbers to way somehow!?
@@ -88,8 +88,10 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             } else {
                 if (tagName.equals("highway")) {
                     if (type != null)
-                        throw new IllegalStateException("type is already initialized " + type + ", vs. " + value);
+                        logger.warn("Overwrite type " + type + " with " + value + " for " + input);
 
+                    // rare OSM issue
+                    // But prefer highway so overwrite e.g. the place=hamlet or locality
                     type = value;
                     osmCategories.put(tagName, value);
 
@@ -124,8 +126,11 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                     osmCategories.put(tagName, value);
 
                 } else if (tagName.equals("place")) {
-                    if (type != null)
-                        throw new IllegalStateException("type is already initialized " + type + ", vs. " + value);
+                    if (type != null) {
+                        // prefer highway tag
+                        logger.warn("Skipping place " + value + " for " + input);
+                        continue;
+                    }
 
                     type = value;
                     osmCategories.put(tagName, value);

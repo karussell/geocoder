@@ -1,8 +1,39 @@
-http://www.elasticsearch.org/guide/reference/api/search/completion-suggest/
+# set city/village of every street!
+  title: Bahnhofstraße
+  48.0709405, 11.6562796 -> Bahnhofstraße Lenting Germany
+  vs. 49.5774614,10.6025237 ->Bahnhofstraße Neustadt a.d.Aisch Germany
+
+# do suggestions!
+  http://www.elasticsearch.org/guide/reference/api/search/completion-suggest/
     https://github.com/elasticsearch/elasticsearch/issues/3522
     https://github.com/elasticsearch/elasticsearch/issues/3465
     https://github.com/elasticsearch/elasticsearch/issues/3442
+# TODO tags object needs mapping
+# create integration test for bavaria
+  one entity:    
+    bay -> bayern + bayreuth
+    nuremberg und Munich und Bavaria
+    algäu -> Allgäu    
+    Fuerth und Fürt und Fuert
+    roter main -> should get some street not the river
+    Bahnhofstraße Bayreuth => will be resolved into bindlach
+    Postbauer heng
+    Lauf Pegnitz 
+    Kufsteinerstraße/Alpenweg
+    Hof/Töpen
+    fuzzy: grevenberg -> gräfenberg
+  two entities
+    Bahnhofstraße Bayreuth -> not Bindlach!    
+    Hasloh Hagenkampsweg => nothing found although it found hasloh
+    does often not work when no comma before zipcodes. e.g.: ABC Strasse 19, 20354 Hamburg
+    fuzzy: bayreuth grafenreutherstrasse ->bayreuth gravenreutherstrasse 
+    steinbank neudorf/spree -> not "steinbank neudorf
+  poi
+    Jugendherberge/LIMARE
+    Bahnhof Bayreuth
 
+* boost streets (e.g. not bus_stop)
+* should we de-duplicate? and how?
 * boundaries for administrative stuff is in the relations! 
   parse relations too! <relation id="2"> <tag k="type" v="boundary" /> or <tag k="boundary" v="administrative" />
 * street additionally has array of housenumber+locations, and higher_level_population
@@ -35,3 +66,19 @@ http://www.elasticsearch.org/guide/reference/api/search/completion-suggest/
  * problem if several threads/processes are using SortingWriter -> this should include a random or unique number
    File file = new File(tempDir, "bucket-" + bucketNr + ".gz");
    
+nominatim alternatives    
+    https://github.com/jillesvangurp/osm2geojson -> easy to feed into elasticsearch OR lucene!
+        http://www.elasticsearch.org/blog/you-complete-me/
+    https://github.com/foursquare/twofishes
+    https://github.com/ncolomer/elasticsearch-osmosis-plugin
+    http://klauszanders.de/blog/2012/10/15/how-to-start-your-own-geocoder-in-48-hours/
+    https://github.com/komoot/photon        
+
+Nominatim issues: 
+ * rio grande -> fluss vs. stadt!
+ * Bahnhofstraße Bayreuth => will be resolved into bindlach
+ * finds "steinbank neudorf/spree" but not "steinbank neudorf"
+ * Hasloh Hagenkampsweg => nothing found although it found hasloh
+ * does often not work when no comma before zipcodes. e.g.: ABC Strasse 19, 20354 Hamburg
+ * dyon -> dijon france
+ * bayreuth grafenreutherstrasse ->bayreuth gravenreutherstrasse 
