@@ -4,43 +4,43 @@
             "enabled" : false
         },
         "properties": {            
+            "link" : {
+                "type" : "string",  
+                "index" : "not_analyzed"
+            },
+            "population" : {
+                "type" : "long"
+            },
+            "location": {
+                "type": "geo_point"                
+            },
+            "bounds": {
+                "type": "geo_shape",
+                "tree": "quadtree",
+                "precision": "50m"
+            },
+            "tags" : {
+                "type" : "string",  
+                "index" : "not_analyzed"
+            },
+            "address" : {
+                "properties" : {
+                    "city" : {
+                        "type" : "string",  
+                        "index" : "analyzed"
+                    },
+                    "street" : {
+                        "type" : "string",  
+                        "index" : "analyzed"
+                    },
+                    "housenumber" : {
+                        "type" : "integer"
+                    }              
+                }
+            },
             "title" : {
                 "type" : "string",  
                 "index" : "analyzed"
-            }
-        },
-        "link" : {
-            "type" : "string",  
-            "index" : "not_analyzed"
-        },
-        "population" : {
-            "type" : "long"
-        },
-        "location": {
-            "type": "geo_point"                
-        },
-        "bounds": {
-            "type": "geo_shape",
-            "tree": "quadtree",
-            "precision": "50m"
-        },
-        "tags" : {
-            "type" : "string",  
-            "index" : "not_analyzed"
-        },
-        "address" : {
-            "properties" : {
-                "city" : {
-                    "type" : "string",  
-                    "index" : "analyzed"
-                },
-                "street" : {
-                    "type" : "string",  
-                    "index" : "analyzed"
-                },
-                "housenumber" : {
-                    "type" : "integer"
-                }              
             }
         }
     }

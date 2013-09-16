@@ -1,5 +1,6 @@
 package com.graphhopper.geocoder;
 
+import com.graphhopper.util.Helper;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;

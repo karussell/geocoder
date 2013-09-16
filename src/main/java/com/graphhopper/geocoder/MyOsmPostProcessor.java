@@ -69,6 +69,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         JsonObject address = new JsonObject();
         JsonObject name = new JsonObject();
         JsonObject osmCategories = new JsonObject();
+        String type = null;
         for (Map.Entry<String, JsonElement> entry : tags.entrySet()) {
             String tagName = entry.getKey();
             String value = entry.getValue().asString();
@@ -79,7 +80,10 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                 name.getOrCreateArray(language).add(value);
             } else {
                 if (tagName.equals("highway")) {
-                    // osmCategories.add("street");
+                    if (type != null)
+                        throw new IllegalStateException("type is already initialized " + type + ", vs. " + value);
+
+                    type = value;
                     osmCategories.put(tagName, value);
 
                 } else if (tagName.equals("leisure")) {
@@ -110,19 +114,27 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                     osmCategories.put(tagName, value);
 
                 } else if (tagName.equals("place")) {
+                    if (type != null)
+                        throw new IllegalStateException("type is already initialized " + type + ", vs. " + value);
+
+                    type = value;
                     osmCategories.put(tagName, value);
                 }
             }
         }
+
+        if (type == null)
+            return null;
 
         // skip uncategorizable stuff
         if (osmCategories.isEmpty())
             return null;
 
         geoJson.put("categories", $(_("osm", osmCategories)));
-        if (address.size() > 0) {
+        if (address.size() > 0)
             geoJson.put("address", address);
-        }
+        
+        geoJson.put("type", type);
 
         Object val = tags.get("population");
         if (val != null)

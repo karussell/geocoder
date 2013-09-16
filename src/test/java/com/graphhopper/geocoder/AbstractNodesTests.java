@@ -20,9 +20,9 @@ import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 public abstract class AbstractNodesTests {
 
     protected final ESLogger logger = Loggers.getLogger(getClass());
-    private Map<String, Node> nodes = new HashMap<String, Node>();
-    private Map<String, Client> clients = new HashMap<String, Client>();
-    private Settings defaultSettings = ImmutableSettings
+    private static Map<String, Node> nodes = new HashMap<String, Node>();
+    private static Map<String, Client> clients = new HashMap<String, Client>();
+    private static Settings defaultSettings = ImmutableSettings
             .settingsBuilder()
             .put("cluster.name", "test-cluster-" + NetworkUtils.getLocalAddress().getHostName())
             .build();
@@ -35,7 +35,7 @@ public abstract class AbstractNodesTests {
         defaultSettings = ImmutableSettings.settingsBuilder().put(defaultSettings).put(settings).build();
     }
 
-    public Node startNode(String id) {
+    public static Node startNode(String id) {
         return buildNode(id).start();
     }
 
@@ -47,7 +47,7 @@ public abstract class AbstractNodesTests {
         return buildNode(id, settings).start();
     }
 
-    public Node buildNode(String id) {
+    public static Node buildNode(String id) {
         return buildNode(id, EMPTY_SETTINGS);
     }
 
@@ -55,10 +55,9 @@ public abstract class AbstractNodesTests {
         return buildNode(id, settings.build());
     }
 
-    public Node buildNode(String id, Settings settings) {
-        String settingsSource = getClass().getName().replace('.', '/') + ".yml";
-        Settings finalSettings = settingsBuilder()
-                .loadFromClasspath(settingsSource)
+    public static Node buildNode(String id, Settings settings) {
+        // String settingsSource = getClass().getName().replace('.', '/') + ".yml";
+        Settings finalSettings = settingsBuilder()                
                 .put(defaultSettings)
                 .put(settings)
                 .put("name", id)
@@ -92,15 +91,15 @@ public abstract class AbstractNodesTests {
         }
     }
 
-    public Node node(String id) {
+    public static Node node(String id) {
         return nodes.get(id);
     }
 
-    public Client client(String id) {
+    public static Client client(String id) {
         return clients.get(id);
     }
 
-    public void closeAllNodes() {
+    public static void closeAllNodes() {
         for (Client client : clients.values()) {
             client.close();
         }

@@ -1,3 +1,4 @@
+* boundaries for administrative stuff is in the relations! <relation id="2"> <tag k="type" v="boundary" /> or <tag k="boundary" v="administrative" />
 * all have: name, type, address, location
 * street additionally has array of housenumber+locations, and higher_level_population
 * how to associate street to city? or is it already done?

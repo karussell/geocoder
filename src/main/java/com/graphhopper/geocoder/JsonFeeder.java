@@ -6,11 +6,15 @@ import com.github.jsonj.JsonElement;
 import com.github.jsonj.JsonObject;
 import com.github.jsonj.tools.JsonParser;
 import com.google.inject.Inject;
+import com.graphhopper.util.DistanceCalc;
+import com.graphhopper.util.DistancePlaneProjection;
+import com.graphhopper.util.PointList;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,6 +60,7 @@ public class JsonFeeder {
     @Inject
     private Configuration conf;
     private boolean minimalData = false;
+    private static DistanceCalc distCalc = new DistancePlaneProjection();
 
     public JsonFeeder() {
     }
@@ -137,7 +142,7 @@ public class JsonFeeder {
     //      "categories":{"osm":["natural:water"]}}
     public XContentBuilder createDoc(JsonObject o) throws IOException {
         XContentBuilder b = JsonXContent.contentBuilder().startObject();
-
+        boolean foundLocation = false;
         for (Entry<String, JsonElement> e : o.entrySet()) {
             JsonElement el = e.getValue();
             String key = e.getKey();
@@ -147,44 +152,40 @@ public class JsonFeeder {
             } else if (key.equalsIgnoreCase("geometry")) {
                 JsonObject jsonObj = el.asObject();
                 String type = jsonObj.getString("type");
+                JsonArray arr = jsonObj.getArray("coordinates");
+                foundLocation = true;
 
-                // TODO calculate location if only bounds exist
-                
                 if ("Point".equalsIgnoreCase(type)) {
-                    JsonArray arr = jsonObj.getArray("coordinates");
                     // order is lon,lat
                     b.field("location", new Object[]{arr.get(0), arr.get(1)});
 
                 } else if ("LineString".equalsIgnoreCase(type)) {
-                    JsonArray arr = jsonObj.getArray("coordinates");
-                    List<Object[]> mainList = new ArrayList<Object[]>();
-                    for (JsonArray innerArr : arr.arrays()) {
-                        // order is lon,lat
-                        mainList.add(new Object[]{innerArr.get(0), innerArr.get(1)});
-                    }
-                    b.field("bounds", mainList);
+                    // pick the point closest to the middle of the road
+                    double[] middlePoint = calcMiddlePoint(arr);
+                    if (middlePoint == null)
+                        continue;
+                    b.field("location", middlePoint);
 
                 } else if ("Polygon".equalsIgnoreCase(type)) {
                     // polygon is an array of array of array
                     // "geometry":{"type":"Polygon","coordinates":[[[..]]]
-                    List<List<Object[]>> mainList = new ArrayList<List<Object[]>>();
-                    JsonArray arr = jsonObj.getArray("coordinates");
-                    for (JsonArray innerArr : arr.arrays()) {
-                        List<Object[]> tmpList = new ArrayList<Object[]>();
-                        mainList.add(tmpList);
-                        for (JsonArray innerstArr : innerArr.arrays()) {
-                            tmpList.add(new Object[]{innerstArr.get(0), innerstArr.get(1)});
-                        }
-                    }
-                    b.field("bounds", mainList);
+                    double[] middlePoint = calcCentroid(toPointList(arr));
+                    if (middlePoint == null)
+                        continue;
+                    b.field("location", middlePoint);
+
+                    if ("Friedrich-List-Straße".equals(o.get("title")))
+                        logger.info("location " + Arrays.toString(middlePoint) + " from " + o.get("title") + ", " + o);
+
                 } else {
                     throw new IllegalStateException("wrong geometry format:" + key + " -> " + el.toString());
                 }
             } else if (key.equalsIgnoreCase("categories")) {
-                // TODO type
                 b.field("tags", toMap(el.asObject().getObject("osm")));
             } else if (key.equalsIgnoreCase("title")) {
                 b.field("title", el.asString());
+            } else if (key.equalsIgnoreCase("type")) {
+                b.field("type", el.asString());
             } else if (key.equalsIgnoreCase("address")) {
                 // object ala {"housenumber":"555","street":"5th Avenue"}
                 b.field("address", toMap(el.asObject()));
@@ -207,6 +208,10 @@ public class JsonFeeder {
                 }
                 logger.warn("Not explicitely supported " + el.type() + ": " + key + " -> " + el.toString());
             }
+        }
+
+        if (!foundLocation) {
+            throw new IllegalStateException("No location found:" + o.toString());
         }
 
         b.endObject();
@@ -287,5 +292,102 @@ public class JsonFeeder {
         }
         bufReader.close();
         return sb.toString();
+    }
+
+    /**
+     * LineString: JsonArray of lon,lat arrays
+     */
+    private static double[] calcMiddlePoint(JsonArray arr) {
+        if (arr.isEmpty())
+            return null;
+
+        double lat = Double.MAX_VALUE, lon = Double.MAX_VALUE;
+        JsonArray firstCoord = arr.get(0).asArray();
+        JsonArray lastCoord = arr.get(arr.size() - 1).asArray();
+        double latFirst = firstCoord.get(1).asDouble();
+        double lonFirst = firstCoord.get(0).asDouble();
+        double latLast = lastCoord.get(1).asDouble();
+        double lonLast = lastCoord.get(0).asDouble();
+        double latMiddle = (latFirst + latLast) / 2;
+        double lonMiddle = (lonFirst + lonLast) / 2;
+        double minDist = Double.MAX_VALUE;
+        for (JsonArray innerArr : arr.arrays()) {
+            double latTmp = innerArr.get(1).asDouble();
+            double lonTmp = innerArr.get(0).asDouble();
+            double tmpDist = distCalc.calcDist(latMiddle, lonMiddle, latTmp, lonTmp);
+            if (minDist > tmpDist) {
+                minDist = tmpDist;
+                lat = latTmp;
+                lon = lonTmp;
+            }
+        }
+
+        return new double[]{lat, lon};
+    }
+
+    /**
+     * Polygon: JsonArray or JsonArrays containing lon,lat arrays
+     */
+    static double[] calcSimpleMean(PointList list) {
+        if (list.isEmpty())
+            return null;
+        double lat = 0, lon = 0;
+        int max = list.getSize();
+        for (int i = 0; i < max; i++) {
+            lat += list.getLatitude(i);
+            lon += list.getLongitude(i);
+        }
+        return new double[]{lat / max, lon / max};
+    }
+
+    /**
+     * Polygon: JsonArray or JsonArrays containing lon,lat arrays
+     */
+    static double[] calcCentroid(PointList list) {
+        if (list.isEmpty())
+            return null;
+
+        // simple average is not too precise 
+        // so use http://en.wikipedia.org/wiki/Centroid#Centroid_of_polygon
+        double lat = 0, lon = 0;
+        double polyArea = 0;
+
+        // lat = y, lon = x
+        // TMP(i) = (lon_i * lat_(i+1) - lon_(i+1) * lat_i)
+        // A = 1/2 sum_0_to_n-1 TMP(i)
+        // lat = C_y = 1/6A sum (lat_i + lat_(i+1) ) * TMP(i)
+        // lon = C_x = 1/6A sum (lon_i + lon_(i+1) ) * TMP(i)        
+
+        int max = list.getSize() - 1;
+        for (int i = 0; i < max; i++) {
+            double tmpLat = list.getLatitude(i);
+            double tmpLat_p1 = list.getLatitude(i + 1);
+            double tmpLon = list.getLongitude(i);
+            double tmpLon_p1 = list.getLongitude(i + 1);
+            double TMP = tmpLon * tmpLat_p1 - tmpLon_p1 * tmpLat;
+            polyArea += TMP;
+            lat += (tmpLat + tmpLat_p1) * TMP;
+            lon += (tmpLon + tmpLon_p1) * TMP;
+        }
+        polyArea /= 2;
+        lat = lat / (6 * polyArea);
+        lon = lon / (6 * polyArea);
+
+        return new double[]{lat, lon};
+    }
+
+    static PointList toPointList(JsonArray arr) {
+        if (arr.isEmpty())
+            return PointList.EMPTY;
+
+        PointList list = new PointList();
+        for (JsonArray innerArr : arr.arrays()) {
+            for (JsonArray innerstArr : innerArr.arrays()) {
+                double tmpLat = innerstArr.get(1).asDouble();
+                double tmpLon = innerstArr.get(0).asDouble();
+                list.add(tmpLat, tmpLon);
+            }
+        }
+        return list;
     }
 }

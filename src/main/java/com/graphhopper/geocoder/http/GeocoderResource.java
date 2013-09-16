@@ -25,7 +25,9 @@ public class GeocoderResource {
     private QueryHandler queryHandler;
 
     @GET
-    public Map<String, Object> getGeocode(@QueryParam("q") String address, @QueryParam("complete") boolean autocomplete) {
+    public Map<String, Object> getGeocode(@QueryParam("q") String address 
+            /*, @QueryParam("boostNear") boostNearPoint, @QueryParam("maxBounds") maxBounds*/) {
+
         SearchResponse rsp = queryHandler.doRequest(address);
         Map<String, Object> json = new HashMap<String, Object>();
         int i = 0;
