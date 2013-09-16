@@ -62,7 +62,7 @@ public class JsonFeederTest extends AbstractNodesTests {
         list.add($(_("id", "osmnode/123"), _("geometry", geo), _("title", "testing it today")));
 
         Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
-        assertEquals(res.size(), 0);
+        assertEquals(res.toString(), res.size(), 0);
         refresh(osmIndex);
         assertEquals(client.prepareCount(osmIndex).execute().actionGet().getCount(), 1);
 

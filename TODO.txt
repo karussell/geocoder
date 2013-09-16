@@ -1,5 +1,10 @@
-* boundaries for administrative stuff is in the relations! <relation id="2"> <tag k="type" v="boundary" /> or <tag k="boundary" v="administrative" />
-* all have: name, type, address, location
+http://www.elasticsearch.org/guide/reference/api/search/completion-suggest/
+    https://github.com/elasticsearch/elasticsearch/issues/3522
+    https://github.com/elasticsearch/elasticsearch/issues/3465
+    https://github.com/elasticsearch/elasticsearch/issues/3442
+
+* boundaries for administrative stuff is in the relations! 
+  parse relations too! <relation id="2"> <tag k="type" v="boundary" /> or <tag k="boundary" v="administrative" />
 * street additionally has array of housenumber+locations, and higher_level_population
 * how to associate street to city? or is it already done?
 * try querying ala "user input*"

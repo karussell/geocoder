@@ -29,7 +29,7 @@ public class QueryHandler {
                 defaultOperator(QueryStringQueryBuilder.Operator.AND);        
         SearchResponse rsp = client.prepareSearch(osmIndex).setTypes(osmType).
                 setQuery(builder).
-                addSort("population", SortOrder.ASC).
+                addSort("population", SortOrder.DESC).
                 execute().actionGet();
         return rsp;
     }

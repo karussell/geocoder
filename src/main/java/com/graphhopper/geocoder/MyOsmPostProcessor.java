@@ -74,7 +74,14 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             String tagName = entry.getKey();
             String value = entry.getValue().asString();
             if (tagName.startsWith("addr:")) {
-                address.put(entry.getKey().substring(5), value);
+                // http://wiki.openstreetmap.org/wiki/Key:addr                
+                String addrKey = entry.getKey().substring(5);                
+                // skip not necessary address data
+                if (addrKey.equals("interpolation") || addrKey.equals("inclusion"))
+                    // TODO use them to associate numbers to way somehow!?
+                    // http://wiki.openstreetmap.org/wiki/Addresses#Using_interpolation
+                    continue;
+                address.put(addrKey, value);
             } else if (tagName.startsWith("name:")) {
                 String language = tagName.substring(5);
                 name.getOrCreateArray(language).add(value);
@@ -99,6 +106,9 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                     osmCategories.put(tagName, value);
 
                 } else if (tagName.equals("cuisine")) {
+                    osmCategories.put(tagName, value);
+
+                } else if (tagName.equals("junction")) {
                     osmCategories.put(tagName, value);
 
                 } else if (tagName.equals("tourism")) {
@@ -133,7 +143,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         geoJson.put("categories", $(_("osm", osmCategories)));
         if (address.size() > 0)
             geoJson.put("address", address);
-        
+
         geoJson.put("type", type);
 
         Object val = tags.get("population");

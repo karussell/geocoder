@@ -94,7 +94,10 @@ public class JsonFeeder {
             @Override
             public Collection<Integer> bulkUpdate(Collection<JsonObject> objects, String indexName, String indexType) {
                 // use only one index for all data
-                return JsonFeeder.this.bulkUpdate(objects, osmIndex, indexType);
+                Collection<Integer> coll = JsonFeeder.this.bulkUpdate(objects, osmIndex, indexType);
+                if (!coll.isEmpty())
+                    logger.warn(coll.size() + " problems while feeding " + objects.size() + " objects! " + objects);
+                return coll;
             }
         }.setBulkSize(conf.getFeedBulkSize());
         processor.setDirectory(conf.getIndexDir());
@@ -143,6 +146,7 @@ public class JsonFeeder {
     public XContentBuilder createDoc(JsonObject o) throws IOException {
         XContentBuilder b = JsonXContent.contentBuilder().startObject();
         boolean foundLocation = false;
+        boolean foundPopulation = false;
         for (Entry<String, JsonElement> e : o.entrySet()) {
             JsonElement el = e.getValue();
             String key = e.getKey();
@@ -154,32 +158,29 @@ public class JsonFeeder {
                 String type = jsonObj.getString("type");
                 JsonArray arr = jsonObj.getArray("coordinates");
                 foundLocation = true;
+                double[] middlePoint = null;
 
                 if ("Point".equalsIgnoreCase(type)) {
                     // order is lon,lat
-                    b.field("location", new Object[]{arr.get(0), arr.get(1)});
+                    middlePoint = new double[]{arr.get(1).asDouble(), arr.get(0).asDouble()};
 
                 } else if ("LineString".equalsIgnoreCase(type)) {
-                    // pick the point closest to the middle of the road
-                    double[] middlePoint = calcMiddlePoint(arr);
-                    if (middlePoint == null)
-                        continue;
-                    b.field("location", middlePoint);
+                    middlePoint = calcMiddlePoint(arr);
 
                 } else if ("Polygon".equalsIgnoreCase(type)) {
                     // polygon is an array of array of array
                     // "geometry":{"type":"Polygon","coordinates":[[[..]]]
-                    double[] middlePoint = calcCentroid(toPointList(arr));
-                    if (middlePoint == null)
-                        continue;
-                    b.field("location", middlePoint);
-
-                    if ("Friedrich-List-Straße".equals(o.get("title")))
+                    middlePoint = calcCentroid(toPointList(arr));
+                    if ("Friedrich-List-Straße".equals(o.get("title").asString()))
                         logger.info("location " + Arrays.toString(middlePoint) + " from " + o.get("title") + ", " + o);
 
                 } else {
                     throw new IllegalStateException("wrong geometry format:" + key + " -> " + el.toString());
                 }
+
+                if (middlePoint == null)
+                    continue;
+                b.field("center", middlePoint);
             } else if (key.equalsIgnoreCase("categories")) {
                 b.field("tags", toMap(el.asObject().getObject("osm")));
             } else if (key.equalsIgnoreCase("title")) {
@@ -200,6 +201,7 @@ public class JsonFeeder {
                 try {
                     long val = Long.parseLong(el.asString());
                     b.field("population", val);
+                    foundPopulation = true;
                 } catch (NumberFormatException ex) {
                 }
             } else {
@@ -208,6 +210,10 @@ public class JsonFeeder {
                 }
                 logger.warn("Not explicitely supported " + el.type() + ": " + key + " -> " + el.toString());
             }
+        }
+
+        if (!foundPopulation) {
+            b.field("population", 0L);
         }
 
         if (!foundLocation) {
@@ -295,7 +301,8 @@ public class JsonFeeder {
     }
 
     /**
-     * LineString: JsonArray of lon,lat arrays
+     * Picks the point closest to the middle of the road/LineString. Input is a
+     * JsonArray of lon,lat arrays
      */
     private static double[] calcMiddlePoint(JsonArray arr) {
         if (arr.isEmpty())

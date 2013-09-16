@@ -2,7 +2,6 @@ package com.graphhopper.geocoder;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
