@@ -26,10 +26,8 @@ import static org.hamcrest.Matchers.*;
 public class JsonFeederTest extends AbstractNodesTests {
 
     protected Client client;
-    private String wayIndex = "way";
-    private String wayType = "way";
-    private String poiIndex = "poi";
-    private String poiType = "poi";
+    private String osmIndex = "osm";
+    private String osmType = "osmobject";
     private JsonFeeder feeder;
     private QueryHandler queryHandler;
 
@@ -38,7 +36,7 @@ public class JsonFeederTest extends AbstractNodesTests {
         client = client("node1");
     }
 
-    @AfterClass public void closeNodes() {
+    @AfterClass public void closeNodes() {        
         client.close();
         closeAllNodes();
     }
@@ -50,6 +48,11 @@ public class JsonFeederTest extends AbstractNodesTests {
         feeder.initIndices();
         queryHandler = new QueryHandler().setClient(client);
     }
+    
+    @AfterMethod
+    public void tearDown() {
+        deleteAll(osmIndex);
+    }
 
     @Test
     public void testFeedPoint() {
@@ -58,10 +61,10 @@ public class JsonFeederTest extends AbstractNodesTests {
         JsonObject geo = $(_("type", "Point"), _("coordinates", coordinates));
         list.add($(_("id", "osmnode/123"), _("geometry", geo), _("title", "testing it today")));
 
-        Collection<Integer> res = feeder.bulkUpdate(list, poiIndex, poiType);
+        Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
         assertThat(res.size(), equalTo(0));
-        refresh(poiIndex);
-        assertThat(client.prepareCount(poiIndex).execute().actionGet().getCount(), equalTo(1L));
+        refresh(osmIndex);
+        assertThat(client.prepareCount(osmIndex).execute().actionGet().getCount(), equalTo(1L));
 
         SearchResponse rsp = queryHandler.doRequest("today");
         assertThat(rsp.getHits().getTotalHits(), equalTo(1L));
@@ -82,15 +85,15 @@ public class JsonFeederTest extends AbstractNodesTests {
         JsonObject geo = $(_("type", "LineString"), _("coordinates", coordinates));
         list.add($(_("id", "osmway/123"), _("geometry", geo), _("title", "testing it today")));
 
-        Collection<Integer> res = feeder.bulkUpdate(list, wayIndex, wayType);
+        Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
         assertThat(res.size(), equalTo(0));
-        refresh(wayIndex);
-        assertThat(client.prepareCount(wayIndex).execute().actionGet().getCount(), equalTo(1L));
+        refresh(osmIndex);
+        assertThat(client.prepareCount(osmIndex).execute().actionGet().getCount(), equalTo(1L));
 
         QueryBuilder builder = QueryBuilders.queryString("today").
                 defaultField("title").
                 defaultOperator(QueryStringQueryBuilder.Operator.AND);
-        SearchResponse rsp = client.prepareSearch(wayIndex).setTypes(wayType).setQuery(builder).execute().actionGet();
+        SearchResponse rsp = client.prepareSearch(osmIndex).setTypes(osmType).setQuery(builder).execute().actionGet();
         assertThat(rsp.getHits().getTotalHits(), equalTo(1L));
 
         ShapeBuilder query = ShapeBuilder.newEnvelope().topLeft(-122.88, 48.62).bottomRight(-122.82, 48.54);
@@ -104,5 +107,12 @@ public class JsonFeederTest extends AbstractNodesTests {
 
     protected void refresh(String indexName) {
         client.admin().indices().refresh(new RefreshRequest(indexName)).actionGet();
+    }
+
+    protected void deleteAll(String indexName) {
+        client.prepareDeleteByQuery(indexName).
+                setQuery(QueryBuilders.matchAllQuery()).
+                execute().actionGet();
+        refresh(indexName);
     }
 }

@@ -12,10 +12,8 @@ import org.elasticsearch.index.query.QueryStringQueryBuilder;
  */
 public class QueryHandler {
 
-    private String wayIndex = "way";
-    private String wayType = "way";
-    private String poiIndex = "poi";
-    private String poiType = "poi";
+    private String osmIndex = "osm";
+    private String osmType = "osmobject";
     @Inject
     private Client client;
 
@@ -28,7 +26,7 @@ public class QueryHandler {
         QueryBuilder builder = QueryBuilders.queryString(query).
                 defaultField("title").
                 defaultOperator(QueryStringQueryBuilder.Operator.AND);
-        SearchResponse rsp = client.prepareSearch(poiIndex).setTypes(poiType).setQuery(builder).execute().actionGet();
+        SearchResponse rsp = client.prepareSearch(osmIndex).setTypes(osmType).setQuery(builder).execute().actionGet();
         return rsp;
     }
 }

@@ -51,12 +51,11 @@ public class JsonFeeder {
     }
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private Client client;
-    private String poiType = "poi";
-    private String wayType = "way";
-    private String poiIndex = "poi";
-    private String wayIndex = "way";
+    private String osmType = "osmobject";
+    private String osmIndex = "osm";
     @Inject
     private Configuration conf;
+    private boolean minimalData = false;
 
     public JsonFeeder() {
     }
@@ -89,7 +88,8 @@ public class JsonFeeder {
         OsmPostProcessor processor = new MyOsmPostProcessor(new JsonParser()) {
             @Override
             public Collection<Integer> bulkUpdate(Collection<JsonObject> objects, String indexName, String indexType) {
-                return JsonFeeder.this.bulkUpdate(objects, indexName, indexType);
+                // use only one index for all data
+                return JsonFeeder.this.bulkUpdate(objects, osmIndex, indexType);
             }
         }.setBulkSize(conf.getFeedBulkSize());
         processor.setDirectory(conf.getIndexDir());
@@ -148,19 +148,21 @@ public class JsonFeeder {
                 JsonObject jsonObj = el.asObject();
                 String type = jsonObj.getString("type");
 
+                // TODO calculate location if only bounds exist
+                
                 if ("Point".equalsIgnoreCase(type)) {
                     JsonArray arr = jsonObj.getArray("coordinates");
-                    // keep lon,lat
+                    // order is lon,lat
                     b.field("location", new Object[]{arr.get(0), arr.get(1)});
 
                 } else if ("LineString".equalsIgnoreCase(type)) {
                     JsonArray arr = jsonObj.getArray("coordinates");
                     List<Object[]> mainList = new ArrayList<Object[]>();
                     for (JsonArray innerArr : arr.arrays()) {
-                        // keep lon,lat
+                        // order is lon,lat
                         mainList.add(new Object[]{innerArr.get(0), innerArr.get(1)});
                     }
-                    b.field("shape", mainList);
+                    b.field("bounds", mainList);
 
                 } else if ("Polygon".equalsIgnoreCase(type)) {
                     // polygon is an array of array of array
@@ -174,12 +176,13 @@ public class JsonFeeder {
                             tmpList.add(new Object[]{innerstArr.get(0), innerstArr.get(1)});
                         }
                     }
-                    b.field("shape", mainList);
+                    b.field("bounds", mainList);
                 } else {
                     throw new IllegalStateException("wrong geometry format:" + key + " -> " + el.toString());
                 }
             } else if (key.equalsIgnoreCase("categories")) {
-                b.field("categories", toMap(el.asObject().getObject("osm")));
+                // TODO type
+                b.field("tags", toMap(el.asObject().getObject("osm")));
             } else if (key.equalsIgnoreCase("title")) {
                 b.field("title", el.asString());
             } else if (key.equalsIgnoreCase("address")) {
@@ -187,7 +190,11 @@ public class JsonFeeder {
                 b.field("address", toMap(el.asObject()));
             } else if (key.equalsIgnoreCase("links")) {
                 // array ala  [{"href":"http://www.fairwaymarket.com/"}]
-                // ignore b.field("links", el);
+                // only grab the first one
+                if (!minimalData && !el.asArray().isEmpty()) {
+                    String link = el.asArray().get(0).asObject().get("href").asString();
+                    b.field("link", link);
+                }
             } else if (key.equalsIgnoreCase("population")) {
                 try {
                     long val = Long.parseLong(el.asString());
@@ -195,7 +202,9 @@ public class JsonFeeder {
                 } catch (NumberFormatException ex) {
                 }
             } else {
-                b.field(key, el);
+                if (!minimalData) {
+                    b.field(key, el);
+                }
                 logger.warn("Not explicitely supported " + el.type() + ": " + key + " -> " + el.toString());
             }
         }
@@ -223,8 +232,7 @@ public class JsonFeeder {
     }
 
     public void initIndices() {
-        initIndex(poiIndex, poiType);
-        initIndex(wayIndex, wayType);
+        initIndex(osmIndex, osmType);
     }
 
     private void createIndex(String indexName) {

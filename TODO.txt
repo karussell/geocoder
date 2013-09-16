@@ -1,3 +1,5 @@
+* all have: name, type, address, location
+* street additionally has array of housenumber+locations, and higher_level_population
 * how to associate street to city? or is it already done?
 * try querying ala "user input*"
   try feeding for for germany, europe, ww
