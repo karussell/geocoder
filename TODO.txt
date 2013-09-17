@@ -1,4 +1,7 @@
-# get administration bounds!
+* use only boundary from admin_level=city|town|village|hamlet
+* check is_in tag
+* check bounds and center (correctness, also if lat,lon order is correct while feeding)
+
 # set city/village of every street!
     for(v : get(all villages)) {
        for(s : get(streets and pois with no address in v.adminBounds) {
@@ -38,10 +41,10 @@
     Jugendherberge/LIMARE
     Bahnhof Bayreuth
 
+* include wikipedia somehow http://productforums.google.com/forum/m/#!topic/maps/toaewYdz0kg
+   http://wikimapia.org, http://retred.org/, http://www.wikivoyage.org/
 * boost streets (e.g. not bus_stop)
 * should we de-duplicate? and how?
-* boundaries for administrative stuff is in the relations! 
-  parse relations too! <relation id="2"> <tag k="type" v="boundary" /> or <tag k="boundary" v="administrative" />
 * street additionally has array of housenumber+locations, and higher_level_population
 * how to associate street to city? or is it already done?
 * try querying ala "user input*"
@@ -70,15 +73,7 @@
 
  * fixing "failed to add" messages
  * problem if several threads/processes are using SortingWriter -> this should include a random or unique number
-   File file = new File(tempDir, "bucket-" + bucketNr + ".gz");
-   
-nominatim alternatives    
-    https://github.com/jillesvangurp/osm2geojson -> easy to feed into elasticsearch OR lucene!
-        http://www.elasticsearch.org/blog/you-complete-me/
-    https://github.com/foursquare/twofishes
-    https://github.com/ncolomer/elasticsearch-osmosis-plugin
-    http://klauszanders.de/blog/2012/10/15/how-to-start-your-own-geocoder-in-48-hours/
-    https://github.com/komoot/photon        
+   File file = new File(tempDir, "bucket-" + bucketNr + ".gz");   
 
 Nominatim issues: 
  * rio grande -> fluss vs. stadt!

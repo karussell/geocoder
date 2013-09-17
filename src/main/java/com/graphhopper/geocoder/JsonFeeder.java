@@ -6,6 +6,9 @@ import com.github.jsonj.JsonElement;
 import com.github.jsonj.JsonObject;
 import com.github.jsonj.tools.JsonParser;
 import com.google.inject.Inject;
+import com.graphhopper.util.DouglasPeucker;
+import com.graphhopper.util.PointList;
+import com.vividsolutions.jts.simplify.DouglasPeuckerSimplifier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -100,6 +103,7 @@ public class JsonFeeder {
         processor.setDirectory(conf.getIndexDir());
         processor.processNodes();
         processor.processWays();
+        processor.processRelations();
     }
 
     public Collection<Integer> bulkUpdate(Collection<JsonObject> objects, String indexName, String indexType) {
@@ -136,6 +140,7 @@ public class JsonFeeder {
 
         return Collections.emptyList();
     }
+    private DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(30);
 
     // {"id":"osmnode/1411809098","title":"Bensons Rift",
     //      "geometry":{"type":"Point","coordinates":[-75.9839922,44.3561003]},
@@ -144,12 +149,21 @@ public class JsonFeeder {
         XContentBuilder b = JsonXContent.contentBuilder().startObject();
         boolean foundLocation = false;
         boolean foundPopulation = false;
+        boolean adminBounds = false;
+        JsonObject catObj = o.getObject("categories");
+        if (catObj != null && catObj.get("osm") != null) {
+            JsonElement strType = catObj.get("osm").asObject().get("type");
+            if (strType != null && "boundary".equals(strType.asString()))
+                adminBounds = true;
+        }
+
         for (Entry<String, JsonElement> e : o.entrySet()) {
             JsonElement el = e.getValue();
             String key = e.getKey();
             if (key.equalsIgnoreCase("id")) {
                 // handled separately -> no need to feed for now
                 continue;
+
             } else if (key.equalsIgnoreCase("geometry")) {
                 JsonObject jsonObj = el.asObject();
                 String type = jsonObj.getString("type");
@@ -158,7 +172,7 @@ public class JsonFeeder {
                 double[] middlePoint = null;
 
                 if ("Point".equalsIgnoreCase(type)) {
-                    // order is lon,lat
+                    // order is lon,lat, but order of middlePoint is lat,lon
                     middlePoint = new double[]{arr.get(1).asDouble(), arr.get(0).asDouble()};
 
                 } else if ("LineString".equalsIgnoreCase(type)) {
@@ -167,9 +181,20 @@ public class JsonFeeder {
                 } else if ("Polygon".equalsIgnoreCase(type)) {
                     // polygon is an array of array of array
                     // "geometry":{"type":"Polygon","coordinates":[[[..]]]
-                    middlePoint = GeocoderHelper.calcCentroid(GeocoderHelper.toPointList(arr));
+                    PointList pList = GeocoderHelper.toPointList(arr);
+                    middlePoint = GeocoderHelper.calcCentroid(pList);
                     if ("Friedrich-List-Straße".equals(o.get("title").asString()))
                         logger.info("location " + Arrays.toString(middlePoint) + " from " + o.get("title") + ", " + o);
+
+                    if (adminBounds) {
+                        // reduce geometry via douglas peucker
+                        peucker.simplify(pList);
+                        double[][] res = new double[pList.getSize()][];
+                        for (int i = 0; i < pList.getSize(); i++) {
+                            res[i] = new double[]{pList.getLatitude(i), pList.getLongitude(i)};
+                        }
+                        b.field("bounds", (Object[]) res);
+                    }
 
                 } else {
                     throw new IllegalStateException("wrong geometry format:" + key + " -> " + el.toString());
@@ -178,39 +203,43 @@ public class JsonFeeder {
                 if (middlePoint == null)
                     continue;
                 b.field("center", middlePoint);
+
             } else if (key.equalsIgnoreCase("categories")) {
                 // no need for now
                 // b.field("tags", GeocoderHelper.toMap(el.asObject().getObject("osm")));
             } else if (key.equalsIgnoreCase("title")) {
                 String title = el.asString();
                 if (title.contains("/")) {
-                    logger.info(title + " " + o);
+                    // logger.info(title + " " + o);
                     // force spaces before and after slash
                     title = title.replaceAll("/", " / ");
-                    // force spaces after dot
+                    // force spaces after dot and comma
                     title = title.replaceAll("\\.", ". ");
+                    title = title.replaceAll("\\,", ", ");
                     title = GeocoderHelper.innerTrim(title);
                 }
                 b.field("title", title);
+
             } else if (key.equalsIgnoreCase("type")) {
                 b.field("type", el.asString());
+
             } else if (key.equalsIgnoreCase("address")) {
                 // object ala {"housenumber":"555","street":"5th Avenue"}
                 b.field("address", GeocoderHelper.toMap(el.asObject()));
-            } else if (key.equalsIgnoreCase("links")) {
-                // array ala  [{"href":"http://www.fairwaymarket.com/"}]
-                // only grab the first one
-                if (!minimalData && !el.asArray().isEmpty()) {
-                    String link = el.asArray().get(0).asObject().get("href").asString();
-                    b.field("link", link);
-                }
+
+            } else if (key.equalsIgnoreCase("link")) {
+                b.field("link", el.asString());
+
+            } else if (key.equalsIgnoreCase("wikipedia")) {
+                b.field("wikipedia", el.asString());
+
             } else if (key.equalsIgnoreCase("population")) {
-                try {
-                    long val = Long.parseLong(el.asString());
-                    b.field("population", val);
-                    foundPopulation = true;
-                } catch (NumberFormatException ex) {
-                }
+                b.field("population", el.asLong());
+                foundPopulation = true;
+
+            } else if (key.equalsIgnoreCase("is_in")) {                
+                b.field("is_in", GeocoderHelper.toArray(el.asArray()));
+
             } else {
                 if (!minimalData) {
                     b.field(key, el);

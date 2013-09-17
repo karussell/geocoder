@@ -2,16 +2,17 @@ package com.graphhopper.geocoder;
 
 import static com.github.jsonj.tools.JsonBuilder.*;
 import com.github.jillesvangurp.osm2geojson.OsmPostProcessor;
+import com.github.jsonj.JsonArray;
 import com.github.jsonj.JsonElement;
 import com.github.jsonj.JsonObject;
 import com.github.jsonj.tools.JsonParser;
+import com.graphhopper.util.StopWatch;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import org.elasticsearch.common.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,7 +51,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                 if (list.size() >= bulkSize) {
                     counter += list.size();
                     sw.stop();
-                    logger.info("took: " + (float) sw.totalTime().getSeconds() / counter);
+                    logger.info("took: " + (float) sw.getSeconds() / counter);
                     sw.start();
                     bulkUpdate(list, tmpType, tmpType);
                     list.clear();
@@ -69,6 +70,8 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         JsonObject address = new JsonObject();
         JsonObject name = new JsonObject();
         JsonObject osmCategories = new JsonObject();
+        // type is either a place (city|town|village) or a street (primary|secondary)
+        // if both is used in OSM (which makes no sense) then street is preferred
         String type = null;
         for (Map.Entry<String, JsonElement> entry : tags.entrySet()) {
             String tagName = entry.getKey();
@@ -125,6 +128,11 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                 } else if (tagName.equals("admin-level")) {
                     osmCategories.put(tagName, value);
 
+                } else if (tagName.equals("boundary")) {
+                    if (!value.equals("adminstrative"))
+                        continue;
+                    osmCategories.put(tagName, value);
+
                 } else if (tagName.equals("place")) {
                     if (type != null) {
                         // prefer highway tag
@@ -151,9 +159,48 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
 
         geoJson.put("type", type);
 
-        Object val = tags.get("population");
+        JsonElement val = tags.get("website");
         if (val != null)
-            geoJson.put("population", val);
+            geoJson.put("link", val.asString());
+
+        val = tags.get("wikipedia");
+        if (val != null) {
+            String str = val.asString();
+            int index = str.indexOf(":");
+            if (index > 0) {
+                String language = str.substring(0, index);
+                String value = str.substring(index + 1).replaceAll("\\ ", "_");
+                String url = "http://" + language + ".wikipedia.org/wiki/" + GeocoderHelper.encodeUrl(value);
+                geoJson.put("wikipedia", url);
+            }
+        }
+
+        val = tags.get("population");
+        if (val != null) {
+            try {
+                long longVal = Long.parseLong(val.asString());
+                geoJson.put("population", longVal);
+            } catch (NumberFormatException ex) {
+            }
+        }
+
+        val = tags.get("is_in");
+        if (val != null) {
+            JsonArray arr = array();
+            String strs[];
+            if (val.asString().contains(";")) {
+                strs = val.asString().split("\\;");
+            } else {
+                strs = val.asString().split("\\,");
+            }
+
+            for (String str : strs) {
+                if (!str.trim().isEmpty())
+                    arr.add(str.trim());
+            }
+            if (!arr.isEmpty())
+                geoJson.put("is_in", arr);
+        }
         return geoJson;
     }
 }

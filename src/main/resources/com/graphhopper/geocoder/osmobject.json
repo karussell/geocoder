@@ -12,6 +12,10 @@
                 "type" : "string",  
                 "index" : "not_analyzed"
             },
+            "wikipedia" : {
+                "type" : "string",  
+                "index" : "not_analyzed"
+            },
             "population" : {
                 "type" : "long"                
             },
