@@ -1,4 +1,10 @@
+# get administration bounds!
 # set city/village of every street!
+    for(v : get(all villages)) {
+       for(s : get(streets and pois with no address in v.adminBounds) {
+          updateStreet(s+=v.address)
+       }
+    }
   title: Bahnhofstraße
   48.0709405, 11.6562796 -> Bahnhofstraße Lenting Germany
   vs. 49.5774614,10.6025237 ->Bahnhofstraße Neustadt a.d.Aisch Germany

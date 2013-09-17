@@ -6,20 +6,13 @@ import com.github.jsonj.JsonElement;
 import com.github.jsonj.JsonObject;
 import com.github.jsonj.tools.JsonParser;
 import com.google.inject.Inject;
-import com.graphhopper.util.DistanceCalc;
-import com.graphhopper.util.DistancePlaneProjection;
-import com.graphhopper.util.PointList;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
@@ -186,7 +179,8 @@ public class JsonFeeder {
                     continue;
                 b.field("center", middlePoint);
             } else if (key.equalsIgnoreCase("categories")) {
-                b.field("tags", GeocoderHelper.toMap(el.asObject().getObject("osm")));
+                // no need for now
+                // b.field("tags", GeocoderHelper.toMap(el.asObject().getObject("osm")));
             } else if (key.equalsIgnoreCase("title")) {
                 String title = el.asString();
                 if (title.contains("/")) {
