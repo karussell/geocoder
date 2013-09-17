@@ -40,6 +40,7 @@
   poi
     Jugendherberge/LIMARE
     Bahnhof Bayreuth
+    isle of man -> GB
 
 * include wikipedia somehow http://productforums.google.com/forum/m/#!topic/maps/toaewYdz0kg
    http://wikimapia.org, http://retred.org/, http://www.wikivoyage.org/

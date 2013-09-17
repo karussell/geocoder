@@ -35,50 +35,51 @@
                     },
                     "country" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     },
                     "state" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     },  
                     "province" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     },
                     "hamlet" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     },
                     "suburb" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     },
                     "subdistrict" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     },  
                     "district" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     },                    
                     "county" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     },
                     "city" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     },
                     "street" : {
                         "type" : "string",  
                         "index" : "analyzed"
                     },
                     "housenumber" : {
-                        "type" : "integer"
+                        "type" : "string",  
+                        "index" : "analyzed"
                     },
                     "postcode" : {
                         "type" : "string",  
-                        "index" : "analyzed"
+                        "index" : "not_analyzed"
                     }                
                 }
             }

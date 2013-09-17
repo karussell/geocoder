@@ -50,9 +50,9 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                 list.add(json);
                 if (list.size() >= bulkSize) {
                     counter += list.size();
-                    sw.stop();
-                    logger.info("took: " + (float) sw.getSeconds() / counter);
-                    sw.start();
+//                    sw.stop();
+//                    logger.info("took: " + (float) sw.getSeconds() / counter);
+//                    sw.start();
                     bulkUpdate(list, tmpType, tmpType);
                     list.clear();
                 }
@@ -91,7 +91,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             } else {
                 if (tagName.equals("highway")) {
                     if (type != null)
-                        logger.warn("Overwrite type " + type + " with " + value + " for " + input);
+                        logger.warn("Overwrite type '" + type + "' with '" + value + "' for " + input);
 
                     // rare OSM issue
                     // But prefer highway so overwrite e.g. the place=hamlet or locality
@@ -136,7 +136,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                 } else if (tagName.equals("place")) {
                     if (type != null) {
                         // prefer highway tag
-                        logger.warn("Skipping place " + value + " for " + input);
+                        logger.warn("Skipping place '" + value + "' for " + input);
                         continue;
                     }
 
@@ -154,9 +154,6 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             return null;
 
         geoJson.put("categories", $(_("osm", osmCategories)));
-        if (address.size() > 0)
-            geoJson.put("address", address);
-
         geoJson.put("type", type);
 
         JsonElement val = tags.get("website");
@@ -170,12 +167,26 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             if (index > 0) {
                 String language = str.substring(0, index);
                 String value = str.substring(index + 1).replaceAll("\\ ", "_");
-                String url = "http://" + language + ".wikipedia.org/wiki/" + GeocoderHelper.encodeUrl(value);
+                String url = "https://" + language + ".wikipedia.org/wiki/" + GeocoderHelper.encodeUrl(value);
                 geoJson.put("wikipedia", url);
             }
         }
 
+        if (address.get("postcode") != null) {
+            val = tags.get("postal_code");
+            if (val == null)
+                val = tags.get("openGeoDB:postal_codes");
+            if (val != null)
+                address.put("postcode", val.asString());
+        }
+
+        if (address.size() > 0)
+            geoJson.put("address", address);
+
         val = tags.get("population");
+        if (val == null)
+            val = tags.get("openGeoDB:population");
+
         if (val != null) {
             try {
                 long longVal = Long.parseLong(val.asString());
@@ -185,6 +196,9 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         }
 
         val = tags.get("is_in");
+        if(val == null)
+            val = tags.get("openGeoDB:is_in");
+        
         if (val != null) {
             JsonArray arr = array();
             String strs[];

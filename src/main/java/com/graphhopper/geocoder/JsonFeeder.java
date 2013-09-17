@@ -8,7 +8,6 @@ import com.github.jsonj.tools.JsonParser;
 import com.google.inject.Inject;
 import com.graphhopper.util.DouglasPeucker;
 import com.graphhopper.util.PointList;
-import com.vividsolutions.jts.simplify.DouglasPeuckerSimplifier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
