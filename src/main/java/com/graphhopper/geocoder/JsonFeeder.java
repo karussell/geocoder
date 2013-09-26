@@ -182,9 +182,7 @@ public class JsonFeeder {
                     // "geometry":{"type":"Polygon","coordinates":[[[..]]]
                     PointList pList = GeocoderHelper.toPointList(arr);
                     middlePoint = GeocoderHelper.calcCentroid(pList);
-                    if ("Friedrich-List-Straße".equals(o.get("title").asString()))
-                        logger.info("location " + Arrays.toString(middlePoint) + " from " + o.get("title") + ", " + o);
-
+                    
                     if (adminBounds) {
                         // reduce geometry via douglas peucker
                         peucker.simplify(pList);

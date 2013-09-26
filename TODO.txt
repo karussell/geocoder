@@ -37,11 +37,14 @@
     does often not work when no comma before zipcodes. e.g.: ABC Strasse 19, 20354 Hamburg
     fuzzy: bayreuth grafenreutherstrasse ->bayreuth gravenreutherstrasse 
     steinbank neudorf/spree -> not "steinbank neudorf
+    bayreuth Sportzentrum, Am Sportpark 3 
+    bayreuth sportzentrum => pottenstein!?!?
   poi
     Jugendherberge/LIMARE
     Bahnhof Bayreuth
     isle of man -> GB
 
+* https://github.com/elasticsearch/elasticsearch/issues/3717
 * include wikipedia somehow http://productforums.google.com/forum/m/#!topic/maps/toaewYdz0kg
    http://wikimapia.org, http://retred.org/, http://www.wikivoyage.org/
 * boost streets (e.g. not bus_stop)
