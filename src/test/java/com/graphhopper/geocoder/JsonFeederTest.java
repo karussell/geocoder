@@ -6,6 +6,7 @@ import static com.github.jsonj.tools.JsonBuilder.$;
 import static com.github.jsonj.tools.JsonBuilder._;
 import static com.github.jsonj.tools.JsonBuilder.array;
 import com.github.jsonj.tools.JsonParser;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -99,28 +100,38 @@ public class JsonFeederTest extends AbstractNodesTests {
     }
 
     @Test
-    public void testFeedRelation() {       
+    public void testFeedRelation() {
         JsonObject obj = MyOsmPostProcessorTest.createRelationObj();
         MyOsmPostProcessor postProc = new MyOsmPostProcessor(new JsonParser());
         obj = postProc.interpretTags(obj, obj);
-        
+
         List<JsonObject> list = new ArrayList<JsonObject>();
         list.add(obj);
         Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
         assertEquals("bulk update should not produce errors", 0, res.size());
         refresh(osmIndex);
-        
+
         SearchResponse rsp = queryHandler.rawRequest("has_boundary:true");
         assertEquals(1, rsp.getHits().getTotalHits(), 1);
-        
+
         rsp = queryHandler.rawRequest("has_boundary:false");
         assertEquals(0, rsp.getHits().getTotalHits());
-        
+
         rsp = queryHandler.rawRequest("admin_level:7");
         assertEquals(1, rsp.getHits().getTotalHits());
-        
+
         rsp = queryHandler.rawRequest("admin_level:6");
         assertEquals(0, rsp.getHits().getTotalHits());
+    }
+
+    @Test
+    public void testKrumbachInvalidShapeExceptionSelfIntersection() throws IOException {
+        JsonObject obj = new JsonParser().parse(GeocoderHelper.toString(getClass().getResourceAsStream("krumbach.json"))).asObject();
+        List<JsonObject> list = new ArrayList<JsonObject>();
+        list.add(obj);
+        Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
+        assertEquals("bulk update should not produce errors", 0, res.size());
+        refresh(osmIndex);
     }
 
     protected void refresh(String indexName) {

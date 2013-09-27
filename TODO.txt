@@ -1,7 +1,14 @@
+* multipolygon like bayreuth! pick the biggest or just feed as multi polygon?
+    http://www.openstreetmap.org/browse/relation/62640
+
 MapperParsingException[failed to parse [bounds]]; 
     nested: InvalidShapeException[Self-intersection at or near point (48.284235162589326, 10.375858042415862, NaN)]; 
+    -> PROBLEM via peucker: when we do douglas peucker then the shape is overlapping!
+    -> ogr2ogr has a simplify option that does something similar and also gets rid of self intersections.
+    -> or use JTS http://stackoverflow.com/questions/17613561/solr-spatial-search-with-self-intersecting-polygons
+    -> not that often. see name = Krumbach -> http://www.openstreetmap.org/browse/relation/444105
 
-* check bounds and center (correctness, also if lat,lon order is correct while feeding)
+* check bounds and center -> query for correctness, also if lat,lon order is correct while feeding
 
 # set city/village of every street!
     for(v : get(all villages)) {

@@ -11,12 +11,15 @@ import static com.github.jsonj.tools.JsonBuilder.array;
 import com.google.inject.Inject;
 import com.graphhopper.util.DouglasPeucker;
 import com.graphhopper.util.PointList;
+import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.GeometryFactory;
+import com.vividsolutions.jts.geom.LinearRing;
+import com.vividsolutions.jts.geom.Polygon;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -163,6 +166,9 @@ public class JsonFeeder {
             if (strType != null && "boundary".equals(strType.asString()))
                 adminBounds = true;
         }
+        String name = o.getString("name");        
+        result.put("name", fixName(name));
+        
         JsonElement type = o.get("type");
         if (type == null)
             logger.warn("no type associated " + o);
@@ -198,7 +204,10 @@ public class JsonFeeder {
 
                     if (adminBounds) {
                         // reduce geometry via douglas peucker
-                        peucker.simplify(pList);
+                        // TODO for now avoid it as it could introduce overlapping areas
+                        // peucker.simplify(pList);
+
+                        // TODO support multipolygon
                         JsonArray tmpRes = new JsonArray();
                         for (int i = 0; i < pList.getSize(); i++) {
                             // lon,lat
@@ -217,7 +226,7 @@ public class JsonFeeder {
 
                 if (middlePoint == null)
                     continue;
-                
+
                 // lon,lat
                 result.put("center", array(middlePoint[1], middlePoint[0]));
 
@@ -227,10 +236,10 @@ public class JsonFeeder {
 
             } else if (key.equalsIgnoreCase("categories")) {
                 // no need for now
-                // b.field("tags", GeocoderHelper.toMap(el.asObject().getObject("osm")));
+                // b.field("tags", GeocoderHelper.toMap(el.asObject().getObject("osm")));                            
+                
             } else if (key.equalsIgnoreCase("name")) {
-                String name = el.asString();
-                result.put("name", fixName(name));
+                // already done
 
             } else if (key.equalsIgnoreCase("names")) {
                 JsonObject obj = el.asObject();

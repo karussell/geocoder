@@ -79,7 +79,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         // if both is used in OSM (which makes no sense) then street is preferred
         String type = null;
         boolean isAdminBound = false;
-        int adminLevel = -1;        
+        int adminLevel = -1;
         for (Map.Entry<String, JsonElement> entry : tags.entrySet()) {
             String tagName = entry.getKey();
             String value = entry.getValue().asString();
@@ -164,16 +164,13 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             }
         }
 
-        if (type == null)
+        JsonElement name = geoJson.get("title");
+        if (type == null || name == null)
             return null;
         geoJson.put("type", type);
-
-        // I don't like title -> use name instead
-        JsonElement name = geoJson.get("title");
-        if (name != null) {
-            geoJson.put("name", name.asString());
-            geoJson.remove("title");
-        }
+        // I don't like title -> use name instead                
+        geoJson.put("name", name.asString());
+        geoJson.remove("title");
 
         if (!names.isEmpty())
             geoJson.put("names", names);
