@@ -5,6 +5,7 @@ import com.github.jsonj.JsonObject;
 import static com.github.jsonj.tools.JsonBuilder.$;
 import static com.github.jsonj.tools.JsonBuilder._;
 import static com.github.jsonj.tools.JsonBuilder.array;
+import com.github.jsonj.tools.JsonParser;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -55,15 +56,15 @@ public class JsonFeederTest extends AbstractNodesTests {
         List<JsonObject> list = new ArrayList<JsonObject>();
         JsonArray coordinates = array(-11, 11);
         JsonObject geo = $(_("type", "Point"), _("coordinates", coordinates));
-        list.add($(_("id", "osmnode/123"), _("geometry", geo), _("title", "testing it today")));
+        list.add($(_("id", "osmnode/123"), _("geometry", geo), _("name", "testing it today")));
 
         Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
-        assertEquals(res.toString(), res.size(), 0);
+        assertEquals(res.toString(), 0, res.size());
         refresh(osmIndex);
         assertEquals(client.prepareCount(osmIndex).execute().actionGet().getCount(), 1);
 
         SearchResponse rsp = queryHandler.doRequest("today");
-        assertEquals(rsp.getHits().getTotalHits(), 1);
+        assertEquals(1, rsp.getHits().getTotalHits());
     }
 
 //    {"id":"osmway/100198671","title":"Depaula Chevrolet Hummer",
@@ -79,15 +80,15 @@ public class JsonFeederTest extends AbstractNodesTests {
         coordinates.add(array(22, 22));
         coordinates.add(array(33, 33));
         JsonObject geo = $(_("type", "LineString"), _("coordinates", coordinates));
-        list.add($(_("id", "osmway/123"), _("geometry", geo), _("title", "testing it today")));
+        list.add($(_("id", "osmway/123"), _("geometry", geo), _("name", "testing it today")));
 
         Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
-        assertEquals(res.size(), 0);
+        assertEquals(0, res.size());
         refresh(osmIndex);
         assertEquals(client.prepareCount(osmIndex).execute().actionGet().getCount(), 1);
 
         SearchResponse rsp = queryHandler.doRequest("today");
-        assertEquals(rsp.getHits().getTotalHits(), 1);
+        assertEquals(1, rsp.getHits().getTotalHits());
 
         // TODO
 //        ShapeBuilder query = ShapeBuilder.newEnvelope().topLeft(-122.88, 48.62).bottomRight(-122.82, 48.54);
@@ -95,6 +96,36 @@ public class JsonFeederTest extends AbstractNodesTests {
 //                geoIntersectionFilter("location", query)))
 //                .execute().actionGet();
 //        assertThat(rsp.getHits().getTotalHits(), equalTo(1L));
+    }
+
+    @Test
+    public void testFeedRelation() {
+        JsonArray coordinates = array();
+        coordinates.add(array(11, 11));
+        coordinates.add(array(22, 22));
+        coordinates.add(array(33, 33));        
+        JsonObject obj = MyOsmPostProcessorTest.createRelationObj();
+
+        MyOsmPostProcessor postProc = new MyOsmPostProcessor(new JsonParser());
+        obj = postProc.interpretTags(obj, obj);
+        
+        List<JsonObject> list = new ArrayList<JsonObject>();
+        list.add(obj);
+        Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
+        assertEquals(res.size(), 0);
+        refresh(osmIndex);
+        
+        SearchResponse rsp = queryHandler.rawRequest("has_boundary:true");
+        assertEquals(1, rsp.getHits().getTotalHits(), 1);
+        
+        rsp = queryHandler.rawRequest("has_boundary:false");
+        assertEquals(0, rsp.getHits().getTotalHits());
+        
+        rsp = queryHandler.rawRequest("admin_level:7");
+        assertEquals(1, rsp.getHits().getTotalHits());
+        
+        rsp = queryHandler.rawRequest("admin_level:6");
+        assertEquals(0, rsp.getHits().getTotalHits());
     }
 
     protected void refresh(String indexName) {

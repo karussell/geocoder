@@ -60,6 +60,10 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
 
             @Override
             public void close() throws IOException {
+                // feed remaining in the list!
+                counter += list.size();
+                bulkUpdate(list, tmpType, tmpType);
+                list.clear();
             }
         };
     }
@@ -135,13 +139,13 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                     }
 
                 } else if (tagName.equals("boundary")) {
-                    if (!value.equals("adminstrative"))
+                    if (!value.equals("administrative"))
                         continue;
                     isAdminBound = true;
-                    
+
                     if (type != null) {
                         // prefer bounds
-                        logger.warn("Overwrite with 'bounds' type '" + value + "' for " + input);                        
+                        logger.warn("Overwrite with 'bounds' type '" + value + "' for " + input);
                     }
 
                     type = tagName;
@@ -161,29 +165,6 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
 
         if (type == null)
             return null;
-
-        // skip uncategorizable stuff
-        if (osmCategories.isEmpty())
-            return null;
-
-        if (isAdminBound && adminLevel > 0) {
-            // only accept 7 (towns) and 8 (cities, villages, hamlets)
-            // but cities do not have (often?) boundaries so accept the broader level 6 too
-            if (adminLevel != 6 || adminLevel != 7 || adminLevel != 8)
-                return null;
-            geoJson.put("admin_level", adminLevel);
-        }
-        
-        JsonObject geoInfo = geoJson.getObject("geo_info");
-        if(geoInfo != null) {
-            String centerNode = geoInfo.getString("admin_centre");
-            if(centerNode != null)
-                geoJson.put("center_node", centerNode);
-                    
-            geoJson.remove("geo_info");
-        }
-
-        geoJson.put("categories", $(_("osm", osmCategories)));
         geoJson.put("type", type);
 
         // I don't like title -> use name instead
@@ -192,8 +173,26 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             geoJson.put("name", name.asString());
             geoJson.remove("title");
         }
+
         if (!names.isEmpty())
             geoJson.put("names", names);
+
+        if (!osmCategories.isEmpty())
+            geoJson.put("categories", $(_("osm", osmCategories)));
+
+        if (isAdminBound && adminLevel > 0) {
+            // accept 7 (towns) and 8 (cities, villages, hamlets)
+            // accept 6: cities do not (often?) have boundaries
+            if (adminLevel < 6 || adminLevel > 8)
+                return null;
+            geoJson.put("admin_level", adminLevel);
+        }
+
+        String centerNode = geoJson.getString("admin_centre");
+        if (centerNode != null) {
+            geoJson.put("center_node", centerNode);
+            geoJson.remove("admin_centre");
+        }
 
         JsonElement val = tags.get("website");
         if (val != null)

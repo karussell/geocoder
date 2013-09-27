@@ -1,12 +1,3 @@
-feed the different names!
-    name = Świebodzice
-    name:de = Freiburg
-    name:szl = Śwjybodzicy
-
-feed "as label" into relations!
-
-* use only boundary from admin_level=city|town|village|hamlet
-* check is_in tag
 * check bounds and center (correctness, also if lat,lon order is correct while feeding)
 
 # set city/village of every street!

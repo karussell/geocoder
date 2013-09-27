@@ -33,4 +33,14 @@ public class QueryHandler {
                 execute().actionGet();
         return rsp;
     }
+    
+    public SearchResponse rawRequest(String query) {
+        QueryBuilder builder = QueryBuilders.queryString(query).
+                defaultField("name").
+                defaultOperator(QueryStringQueryBuilder.Operator.AND);        
+        SearchResponse rsp = client.prepareSearch(osmIndex).setTypes(osmType).
+                setQuery(builder).                
+                execute().actionGet();
+        return rsp;
+    }
 }

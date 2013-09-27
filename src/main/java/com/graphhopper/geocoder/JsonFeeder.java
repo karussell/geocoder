@@ -162,13 +162,10 @@ public class JsonFeeder {
                 adminBounds = true;
         }
         JsonElement type = o.get("type");
-        if(type == null) {
+        if (type == null)
             logger.warn("no type associated " + o);
-        } else
-            if("boundary".equals(type.asString())) {
-                adminBounds = true;
-                b.field("has_bounds", true);
-            }
+        else if ("boundary".equals(type.asString()))
+            adminBounds = true;
 
         for (Entry<String, JsonElement> e : o.entrySet()) {
             JsonElement el = e.getValue();
@@ -204,7 +201,8 @@ public class JsonFeeder {
                         for (int i = 0; i < pList.getSize(); i++) {
                             res[i] = new double[]{pList.getLatitude(i), pList.getLongitude(i)};
                         }
-                        
+
+                        b.field("has_bounds", true);
                         b.field("bounds", (Object[]) res);
                     }
 
@@ -247,10 +245,10 @@ public class JsonFeeder {
 
             } else if (key.equalsIgnoreCase("wikipedia")) {
                 b.field("wikipedia", el.asString());
-                
+
             } else if (key.equalsIgnoreCase("admin_level")) {
                 b.field("admin_level", el.asInt());
-                
+
             } else if (key.equalsIgnoreCase("population")) {
                 b.field("population", el.asLong());
                 foundPopulation = true;
@@ -266,13 +264,11 @@ public class JsonFeeder {
             }
         }
 
-        if (!foundPopulation) {
+        if (!foundPopulation)
             b.field("population", 0L);
-        }
 
-        if (!foundLocation) {
+        if (!foundLocation)
             throw new IllegalStateException("No location found:" + o.toString());
-        }
 
         b.endObject();
         return b;
