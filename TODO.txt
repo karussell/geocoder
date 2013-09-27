@@ -1,3 +1,6 @@
+Cannot index object osmway/123. Error:MapperParsingException[failed to parse [bounds]]; 
+    nested: ElasticSearchParseException[Shape must be an object consisting of type and coordinates];
+
 * check bounds and center (correctness, also if lat,lon order is correct while feeding)
 
 # set city/village of every street!

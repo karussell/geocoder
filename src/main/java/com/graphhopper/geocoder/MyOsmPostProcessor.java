@@ -71,6 +71,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
     @Override
     protected JsonObject interpretTags(JsonObject input, JsonObject geoJson) {
         JsonObject tags = input.getObject("tags");
+        input.remove("tags");
         JsonObject address = new JsonObject();
         JsonObject names = new JsonObject();
         JsonObject osmCategories = new JsonObject();
@@ -78,7 +79,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         // if both is used in OSM (which makes no sense) then street is preferred
         String type = null;
         boolean isAdminBound = false;
-        int adminLevel = -1;
+        int adminLevel = -1;        
         for (Map.Entry<String, JsonElement> entry : tags.entrySet()) {
             String tagName = entry.getKey();
             String value = entry.getValue().asString();

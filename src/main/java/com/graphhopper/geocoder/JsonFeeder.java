@@ -203,7 +203,10 @@ public class JsonFeeder {
                         }
 
                         b.field("has_bounds", true);
-                        b.field("bounds", (Object[]) res);
+                        Map<String, Object> map = new HashMap<String, Object>(2);
+                        map.put("type", "polygon");
+                        map.put("coordinates", new Object[]{res});
+                        b.field("bounds", map);
                     }
 
                 } else {

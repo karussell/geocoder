@@ -18,10 +18,13 @@ public class MyOsmPostProcessorTest {
     public static JsonObject createRelationObj() {
         JsonArray coordinates = array();
         coordinates.add(array(11, 11));
+        coordinates.add(array(22, 11));
         coordinates.add(array(22, 22));
-        coordinates.add(array(33, 33));
+        coordinates.add(array(11, 22));
         coordinates.add(array(11, 11));
-        JsonObject geo = $(_("type", "LineString"), _("coordinates", coordinates));
+        JsonArray tmp = array();
+        tmp.add(coordinates);
+        JsonObject geo = $(_("type", "Polygon"), _("coordinates", tmp));
         JsonObject tags = $(
                 _("boundary", "administrative"),
                 _("admin_level", "7"));

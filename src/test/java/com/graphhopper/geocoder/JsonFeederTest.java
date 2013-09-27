@@ -99,13 +99,8 @@ public class JsonFeederTest extends AbstractNodesTests {
     }
 
     @Test
-    public void testFeedRelation() {
-        JsonArray coordinates = array();
-        coordinates.add(array(11, 11));
-        coordinates.add(array(22, 22));
-        coordinates.add(array(33, 33));        
+    public void testFeedRelation() {       
         JsonObject obj = MyOsmPostProcessorTest.createRelationObj();
-
         MyOsmPostProcessor postProc = new MyOsmPostProcessor(new JsonParser());
         obj = postProc.interpretTags(obj, obj);
         
