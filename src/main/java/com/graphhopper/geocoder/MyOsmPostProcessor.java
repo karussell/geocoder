@@ -73,6 +73,8 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         // type is either a place (city|town|village) or a street (primary|secondary)
         // if both is used in OSM (which makes no sense) then street is preferred
         String type = null;
+        boolean isAdminBound = false;
+        int adminLevel = -1;
         for (Map.Entry<String, JsonElement> entry : tags.entrySet()) {
             String tagName = entry.getKey();
             String value = entry.getValue().asString();
@@ -126,12 +128,16 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                     osmCategories.put(tagName, value);
 
                 } else if (tagName.equals("admin-level")) {
-                    osmCategories.put(tagName, value);
+                    try {
+                        adminLevel = Integer.parseInt(value);
+                    } catch (NumberFormatException ex) {
+                        logger.warn("cannot parse adminlevel:" + value, ex);
+                    }
 
                 } else if (tagName.equals("boundary")) {
                     if (!value.equals("adminstrative"))
                         continue;
-                    osmCategories.put(tagName, value);
+                    isAdminBound = true;
 
                 } else if (tagName.equals("place")) {
                     if (type != null) {
@@ -152,6 +158,13 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         // skip uncategorizable stuff
         if (osmCategories.isEmpty())
             return null;
+
+        if (isAdminBound && adminLevel > 0) {
+            // only accept 7 (towns) and 8 (cities, villages, hamlets)
+            if (adminLevel != 7 || adminLevel != 8)
+                return null;
+            geoJson.put("admin_level", adminLevel);
+        }
 
         geoJson.put("categories", $(_("osm", osmCategories)));
         geoJson.put("type", type);
@@ -196,9 +209,9 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         }
 
         val = tags.get("is_in");
-        if(val == null)
+        if (val == null)
             val = tags.get("openGeoDB:is_in");
-        
+
         if (val != null) {
             JsonArray arr = array();
             String strs[];

@@ -11,7 +11,6 @@ import com.graphhopper.util.PointList;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -53,14 +52,14 @@ public class JsonFeeder {
     private String osmType = "osmobject";
     private String osmIndex = "osm";
     @Inject
-    private Configuration conf;
+    private Configuration config;
     private boolean minimalData = false;
 
     public JsonFeeder() {
     }
 
     public JsonFeeder setConfiguration(Configuration configuration) {
-        this.conf = configuration;
+        this.config = configuration;
         return this;
     }
 
@@ -74,19 +73,21 @@ public class JsonFeeder {
     public void start() {
         // "failed to get node info for..." -> wrong elasticsearch version for client vs. server
 
-        String cluster = conf.getElasticSearchCluster();
-        String host = conf.getElasticSearchHost();
-        int port = conf.getElasticSearchPort();
+        String cluster = config.getElasticSearchCluster();
+        String host = config.getElasticSearchHost();
+        int port = config.getElasticSearchPort();
         setClient(createClient(cluster, host, port));
         feed();
     }
 
     public void feed() {
         initIndices();
-
+                
         OsmPostProcessor processor = new MyOsmPostProcessor(new JsonParser()) {
-            @Override
-            public Collection<Integer> bulkUpdate(List<JsonObject> objects, String indexName, String indexType) {
+            boolean dryRun = config.isDryRun();
+            @Override public Collection<Integer> bulkUpdate(List<JsonObject> objects, String indexName, String indexType) {
+                if (dryRun)
+                    return Collections.EMPTY_LIST;
                 // use only one index for all data
                 Collection<Integer> coll = JsonFeeder.this.bulkUpdate(objects, osmIndex, osmType);
                 if (!coll.isEmpty()) {
@@ -98,8 +99,9 @@ public class JsonFeeder {
                 }
                 return coll;
             }
-        }.setBulkSize(conf.getFeedBulkSize());
-        processor.setDirectory(conf.getIndexDir());
+        }.setBulkSize(config.getFeedBulkSize());
+        
+        processor.setDirectory(config.getIndexDir());
         processor.processNodes();
         processor.processWays();
         processor.processRelations();
@@ -139,7 +141,7 @@ public class JsonFeeder {
 
         return Collections.emptyList();
     }
-    private DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(30);
+    private DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(500);
 
     // {"id":"osmnode/1411809098","title":"Bensons Rift",
     //      "geometry":{"type":"Point","coordinates":[-75.9839922,44.3561003]},
@@ -182,7 +184,7 @@ public class JsonFeeder {
                     // "geometry":{"type":"Polygon","coordinates":[[[..]]]
                     PointList pList = GeocoderHelper.toPointList(arr);
                     middlePoint = GeocoderHelper.calcCentroid(pList);
-                    
+
                     if (adminBounds) {
                         // reduce geometry via douglas peucker
                         peucker.simplify(pList);
@@ -234,7 +236,7 @@ public class JsonFeeder {
                 b.field("population", el.asLong());
                 foundPopulation = true;
 
-            } else if (key.equalsIgnoreCase("is_in")) {                
+            } else if (key.equalsIgnoreCase("is_in")) {
                 b.field("is_in", GeocoderHelper.toArray(el.asArray()));
 
             } else {
@@ -261,18 +263,6 @@ public class JsonFeeder {
         initIndex(osmIndex, osmType);
     }
 
-    private void createIndex(String indexName) {
-        boolean log = true;
-        try {
-            client.admin().indices().create(new CreateIndexRequest(indexName)).actionGet();
-            if (log)
-                logger.info("Created index: " + indexName);
-        } catch (Exception ex) {
-            if (log)
-                logger.info("Index " + indexName + " already exists");
-        }
-    }
-
     private void createIndexAndPutMapping(String indexName, String type) {
         boolean log = true;
         try {
@@ -289,14 +279,5 @@ public class JsonFeeder {
 
     private void initIndex(String indexName, String type) {
         createIndexAndPutMapping(indexName, type);
-//        createIndex(indexName);
-//
-//        InputStream is = getClass().getResourceAsStream(type + ".json");
-//        try {
-//            String mappingSource = toString(is);
-//            client.admin().indices().putMapping(new PutMappingRequest(indexName).type(type).source(mappingSource)).actionGet();
-//        } catch (Exception ex) {
-//            throw new RuntimeException(ex);
-//        }
     }
 }

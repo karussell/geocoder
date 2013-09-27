@@ -67,6 +67,13 @@ public class Configuration {
         return new File(System.getProperty("user.dir"));
     }
 
+    boolean isDryRun() {
+        String value = get(appName + ".dryrun");
+        if (value == null)
+            return false;
+        return Boolean.parseBoolean(value);
+    }
+
     public String get(String key) {
         // system values are more important!
         String val = System.getProperty(key);
