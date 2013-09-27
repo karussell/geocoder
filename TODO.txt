@@ -1,5 +1,5 @@
-Cannot index object osmway/123. Error:MapperParsingException[failed to parse [bounds]]; 
-    nested: ElasticSearchParseException[Shape must be an object consisting of type and coordinates];
+MapperParsingException[failed to parse [bounds]]; 
+    nested: InvalidShapeException[Self-intersection at or near point (48.284235162589326, 10.375858042415862, NaN)]; 
 
 * check bounds and center (correctness, also if lat,lon order is correct while feeding)
 

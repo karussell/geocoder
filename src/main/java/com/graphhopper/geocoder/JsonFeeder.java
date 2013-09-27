@@ -5,6 +5,9 @@ import com.github.jsonj.JsonArray;
 import com.github.jsonj.JsonElement;
 import com.github.jsonj.JsonObject;
 import com.github.jsonj.tools.JsonParser;
+import static com.github.jsonj.tools.JsonBuilder.$;
+import static com.github.jsonj.tools.JsonBuilder._;
+import static com.github.jsonj.tools.JsonBuilder.array;
 import com.google.inject.Inject;
 import com.graphhopper.util.DouglasPeucker;
 import com.graphhopper.util.PointList;
@@ -17,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
@@ -28,8 +32,6 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -122,8 +124,8 @@ public class JsonFeeder {
             }
 
             try {
-                XContentBuilder source = createDoc(o);
-                IndexRequest indexReq = Requests.indexRequest(indexName).type(indexType).id(id).source(source);
+                JsonObject obj = createDoc(o);
+                IndexRequest indexReq = Requests.indexRequest(indexName).type(indexType).id(id).source(obj.toString());
                 brb.add(indexReq);
             } catch (Exception ex) {
                 logger.warn("cannot add object " + id + " -> " + o.toString(), ex);
@@ -150,8 +152,8 @@ public class JsonFeeder {
     // {"id":"osmnode/1411809098","title":"Bensons Rift",
     //      "geometry":{"type":"Point","coordinates":[-75.9839922,44.3561003]},
     //      "categories":{"osm":["natural:water"]}}
-    public XContentBuilder createDoc(JsonObject o) throws IOException {
-        XContentBuilder b = JsonXContent.contentBuilder().startObject();
+    public JsonObject createDoc(JsonObject o) throws IOException {
+        JsonObject result = new JsonObject();
         boolean foundLocation = false;
         boolean foundPopulation = false;
         boolean adminBounds = false;
@@ -197,16 +199,16 @@ public class JsonFeeder {
                     if (adminBounds) {
                         // reduce geometry via douglas peucker
                         peucker.simplify(pList);
-                        double[][] res = new double[pList.getSize()][];
+                        JsonArray tmpRes = new JsonArray();
                         for (int i = 0; i < pList.getSize(); i++) {
-                            res[i] = new double[]{pList.getLatitude(i), pList.getLongitude(i)};
+                            // lon,lat
+                            tmpRes.add(array(pList.getLongitude(i), pList.getLatitude(i)));
                         }
 
-                        b.field("has_bounds", true);
-                        Map<String, Object> map = new HashMap<String, Object>(2);
-                        map.put("type", "polygon");
-                        map.put("coordinates", new Object[]{res});
-                        b.field("bounds", map);
+                        result.put("has_bounds", true);
+                        JsonArray coordinates = array();
+                        coordinates.add(tmpRes);
+                        result.put("bounds", $(_("type", "polygon"), _("coordinates", coordinates)));
                     }
 
                 } else {
@@ -215,66 +217,66 @@ public class JsonFeeder {
 
                 if (middlePoint == null)
                     continue;
-                b.field("center", middlePoint);
+                
+                // lon,lat
+                result.put("center", array(middlePoint[1], middlePoint[0]));
 
             } else if (key.equalsIgnoreCase("center_node")) {
                 // a relation normally has a center_node associated -> could make fetching easier/faster
-                b.field("center_node", el.asString());
+                result.put("center_node", el);
 
             } else if (key.equalsIgnoreCase("categories")) {
                 // no need for now
                 // b.field("tags", GeocoderHelper.toMap(el.asObject().getObject("osm")));
             } else if (key.equalsIgnoreCase("name")) {
                 String name = el.asString();
-                b.field("name", fixName(name));
+                result.put("name", fixName(name));
 
             } else if (key.equalsIgnoreCase("names")) {
                 JsonObject obj = el.asObject();
-                Map<String, Object> res = new HashMap<String, Object>(obj.size());
+                JsonObject names = result.getOrCreateObject("names");
                 for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-                    res.put(entry.getKey(), fixName(entry.getValue().asString()));
+                    names.put(entry.getKey(), fixName(entry.getValue().asString()));
                 }
-                b.field("names", res);
-
-            } else if (key.equalsIgnoreCase("type")) {
-                b.field("type", el.asString());
-
-            } else if (key.equalsIgnoreCase("address")) {
-                // object ala {"housenumber":"555","street":"5th Avenue"}
-                b.field("address", GeocoderHelper.toMap(el.asObject()));
-
-            } else if (key.equalsIgnoreCase("link")) {
-                b.field("link", el.asString());
-
-            } else if (key.equalsIgnoreCase("wikipedia")) {
-                b.field("wikipedia", el.asString());
-
-            } else if (key.equalsIgnoreCase("admin_level")) {
-                b.field("admin_level", el.asInt());
 
             } else if (key.equalsIgnoreCase("population")) {
-                b.field("population", el.asLong());
+                result.put("population", el);
                 foundPopulation = true;
 
             } else if (key.equalsIgnoreCase("is_in")) {
-                b.field("is_in", GeocoderHelper.toArray(el.asArray()));
+                result.put("is_in", el);
+
+            } else if (key.equalsIgnoreCase("type")) {
+                result.put("type", el);
+
+            } else if (key.equalsIgnoreCase("address")) {
+                // object ala {"housenumber":"555","street":"5th Avenue"}
+                result.put("address", el);
+
+            } else if (key.equalsIgnoreCase("link")) {
+                result.put("link", el);
+
+            } else if (key.equalsIgnoreCase("wikipedia")) {
+                result.put("wikipedia", el);
+
+            } else if (key.equalsIgnoreCase("admin_level")) {
+                result.put("admin_level", el);
 
             } else {
-                if (!minimalData) {
-                    b.field(key, el);
-                }
+                if (!minimalData)
+                    result.put(key, el);
+
                 logger.warn("Not explicitely supported " + el.type() + ": " + key + " -> " + el.toString());
             }
         }
 
         if (!foundPopulation)
-            b.field("population", 0L);
+            result.put("population", 0L);
 
         if (!foundLocation)
             throw new IllegalStateException("No location found:" + o.toString());
 
-        b.endObject();
-        return b;
+        return result;
     }
 
     String fixName(String name) {

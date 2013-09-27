@@ -107,7 +107,7 @@ public class JsonFeederTest extends AbstractNodesTests {
         List<JsonObject> list = new ArrayList<JsonObject>();
         list.add(obj);
         Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
-        assertEquals(res.size(), 0);
+        assertEquals("bulk update should not produce errors", 0, res.size());
         refresh(osmIndex);
         
         SearchResponse rsp = queryHandler.rawRequest("has_boundary:true");
