@@ -25,7 +25,7 @@ public class QueryHandler {
 
     public SearchResponse doRequest(String query) {
         QueryBuilder builder = QueryBuilders.queryString(query).
-                defaultField("title").
+                defaultField("name").
                 defaultOperator(QueryStringQueryBuilder.Operator.AND);        
         SearchResponse rsp = client.prepareSearch(osmIndex).setTypes(osmType).
                 setQuery(builder).

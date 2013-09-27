@@ -13,7 +13,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
@@ -53,7 +55,7 @@ public class JsonFeeder {
     private String osmIndex = "osm";
     @Inject
     private Configuration config;
-    private boolean minimalData = false;
+    private boolean minimalData;
 
     public JsonFeeder() {
     }
@@ -82,9 +84,10 @@ public class JsonFeeder {
 
     public void feed() {
         initIndices();
-                
+
         OsmPostProcessor processor = new MyOsmPostProcessor(new JsonParser()) {
             boolean dryRun = config.isDryRun();
+
             @Override public Collection<Integer> bulkUpdate(List<JsonObject> objects, String indexName, String indexType) {
                 if (dryRun)
                     return Collections.EMPTY_LIST;
@@ -100,7 +103,8 @@ public class JsonFeeder {
                 return coll;
             }
         }.setBulkSize(config.getFeedBulkSize());
-        
+
+        minimalData = config.isMinimalDataMode();
         processor.setDirectory(config.getIndexDir());
         processor.processNodes();
         processor.processWays();
@@ -141,7 +145,7 @@ public class JsonFeeder {
 
         return Collections.emptyList();
     }
-    private DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(500);
+    private DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(30);
 
     // {"id":"osmnode/1411809098","title":"Bensons Rift",
     //      "geometry":{"type":"Point","coordinates":[-75.9839922,44.3561003]},
@@ -157,6 +161,14 @@ public class JsonFeeder {
             if (strType != null && "boundary".equals(strType.asString()))
                 adminBounds = true;
         }
+        JsonElement type = o.get("type");
+        if(type == null) {
+            logger.warn("no type associated " + o);
+        } else
+            if("boundary".equals(type.asString())) {
+                adminBounds = true;
+                b.field("has_bounds", true);
+            }
 
         for (Entry<String, JsonElement> e : o.entrySet()) {
             JsonElement el = e.getValue();
@@ -167,19 +179,19 @@ public class JsonFeeder {
 
             } else if (key.equalsIgnoreCase("geometry")) {
                 JsonObject jsonObj = el.asObject();
-                String type = jsonObj.getString("type");
+                String geoType = jsonObj.getString("type");
                 JsonArray arr = jsonObj.getArray("coordinates");
                 foundLocation = true;
                 double[] middlePoint = null;
 
-                if ("Point".equalsIgnoreCase(type)) {
+                if ("Point".equalsIgnoreCase(geoType)) {
                     // order is lon,lat, but order of middlePoint is lat,lon
                     middlePoint = new double[]{arr.get(1).asDouble(), arr.get(0).asDouble()};
 
-                } else if ("LineString".equalsIgnoreCase(type)) {
+                } else if ("LineString".equalsIgnoreCase(geoType)) {
                     middlePoint = GeocoderHelper.calcMiddlePoint(arr);
 
-                } else if ("Polygon".equalsIgnoreCase(type)) {
+                } else if ("Polygon".equalsIgnoreCase(geoType)) {
                     // polygon is an array of array of array
                     // "geometry":{"type":"Polygon","coordinates":[[[..]]]
                     PointList pList = GeocoderHelper.toPointList(arr);
@@ -192,6 +204,7 @@ public class JsonFeeder {
                         for (int i = 0; i < pList.getSize(); i++) {
                             res[i] = new double[]{pList.getLatitude(i), pList.getLongitude(i)};
                         }
+                        
                         b.field("bounds", (Object[]) res);
                     }
 
@@ -203,21 +216,24 @@ public class JsonFeeder {
                     continue;
                 b.field("center", middlePoint);
 
+            } else if (key.equalsIgnoreCase("center_node")) {
+                // a relation normally has a center_node associated -> could make fetching easier/faster
+                b.field("center_node", el.asString());
+
             } else if (key.equalsIgnoreCase("categories")) {
                 // no need for now
                 // b.field("tags", GeocoderHelper.toMap(el.asObject().getObject("osm")));
-            } else if (key.equalsIgnoreCase("title")) {
-                String title = el.asString();
-                if (title.contains("/")) {
-                    // logger.info(title + " " + o);
-                    // force spaces before and after slash
-                    title = title.replaceAll("/", " / ");
-                    // force spaces after dot and comma
-                    title = title.replaceAll("\\.", ". ");
-                    title = title.replaceAll("\\,", ", ");
-                    title = GeocoderHelper.innerTrim(title);
+            } else if (key.equalsIgnoreCase("name")) {
+                String name = el.asString();
+                b.field("name", fixName(name));
+
+            } else if (key.equalsIgnoreCase("names")) {
+                JsonObject obj = el.asObject();
+                Map<String, Object> res = new HashMap<String, Object>(obj.size());
+                for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+                    res.put(entry.getKey(), fixName(entry.getValue().asString()));
                 }
-                b.field("title", title);
+                b.field("names", res);
 
             } else if (key.equalsIgnoreCase("type")) {
                 b.field("type", el.asString());
@@ -231,7 +247,10 @@ public class JsonFeeder {
 
             } else if (key.equalsIgnoreCase("wikipedia")) {
                 b.field("wikipedia", el.asString());
-
+                
+            } else if (key.equalsIgnoreCase("admin_level")) {
+                b.field("admin_level", el.asInt());
+                
             } else if (key.equalsIgnoreCase("population")) {
                 b.field("population", el.asLong());
                 foundPopulation = true;
@@ -257,6 +276,19 @@ public class JsonFeeder {
 
         b.endObject();
         return b;
+    }
+
+    String fixName(String name) {
+        if (name.contains("/")) {
+            // logger.info(title + " " + o);
+            // force spaces before and after slash
+            name = name.replaceAll("/", " / ");
+            // force spaces after dot and comma
+            name = name.replaceAll("\\.", ". ");
+            name = name.replaceAll("\\,", ", ");
+            name = GeocoderHelper.innerTrim(name);
+        }
+        return name;
     }
 
     public void initIndices() {

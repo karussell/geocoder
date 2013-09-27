@@ -67,8 +67,15 @@ public class Configuration {
         return new File(System.getProperty("user.dir"));
     }
 
-    boolean isDryRun() {
+    public boolean isDryRun() {
         String value = get(appName + ".dryrun");
+        if (value == null)
+            return false;
+        return Boolean.parseBoolean(value);
+    }
+    
+    public boolean isMinimalDataMode() {
+        String value = get(appName + ".mode.minimaldata");
         if (value == null)
             return false;
         return Boolean.parseBoolean(value);
@@ -129,4 +136,5 @@ public class Configuration {
             logger.error("Problem while reading configuration", ex);
         }
     }
+
 }
