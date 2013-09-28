@@ -9,12 +9,7 @@ import static com.github.jsonj.tools.JsonBuilder.$;
 import static com.github.jsonj.tools.JsonBuilder._;
 import static com.github.jsonj.tools.JsonBuilder.array;
 import com.google.inject.Inject;
-import com.graphhopper.util.DouglasPeucker;
 import com.graphhopper.util.PointList;
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.LinearRing;
-import com.vividsolutions.jts.geom.Polygon;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -150,7 +145,6 @@ public class JsonFeeder {
 
         return Collections.emptyList();
     }
-    private DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(30);
 
     // {"id":"osmnode/1411809098","title":"Bensons Rift",
     //      "geometry":{"type":"Point","coordinates":[-75.9839922,44.3561003]},
@@ -166,9 +160,9 @@ public class JsonFeeder {
             if (strType != null && "boundary".equals(strType.asString()))
                 adminBounds = true;
         }
-        String name = o.getString("name");        
+        String name = o.getString("name");
         result.put("name", fixName(name));
-        
+
         JsonElement type = o.get("type");
         if (type == null)
             logger.warn("no type associated " + o);
@@ -197,38 +191,54 @@ public class JsonFeeder {
                     middlePoint = GeocoderHelper.calcMiddlePoint(arr);
 
                 } else if ("Polygon".equalsIgnoreCase(geoType)) {
-                    // polygon is an array of array of array
-                    // "geometry":{"type":"Polygon","coordinates":[[[..]]]
-                    PointList pList = GeocoderHelper.toPointList(arr);
-                    middlePoint = GeocoderHelper.calcCentroid(pList);
+                    // A polygon is defined by a list of a list of points. The first and last points in each list must be the same (the polygon must be closed).
+                    // The first array represents the outer boundary of the polygon (unsupported: the other arrays represent the interior shapes (holes))
+                    PointList polyList = GeocoderHelper.polygonToPointList(arr.get(0).asArray());
+                    middlePoint = GeocoderHelper.calcCentroid(polyList);
+                    // TODO simplify polyList!!
 
+                    JsonArray polyBoundary = array();
+                    polyBoundary.add(GeocoderHelper.pointListToArray(polyList));
+                    result.put("has_bounds", true);
+                    result.put("bounds", $(_("type", "polygon"),
+                            _("coordinates", polyBoundary)));
+
+                } else if ("MultiPolygon".equalsIgnoreCase(geoType)) {
+                    // multipolygon is an array of array of coordinates (array)
+                    // "geometry":{"type":"MultiPolygon","coordinates":[ (first polygon) [[lon, lat], ..], (next) [[lon, lat], ..]]                    
                     if (adminBounds) {
-                        // reduce geometry via douglas peucker
-                        // TODO for now avoid it as it could introduce overlapping areas
-                        // peucker.simplify(pList);
-
-                        // TODO support multipolygon
-                        JsonArray tmpRes = new JsonArray();
-                        for (int i = 0; i < pList.getSize(); i++) {
-                            // lon,lat
-                            tmpRes.add(array(pList.getLongitude(i), pList.getLatitude(i)));
+                        JsonArray coordinates = array();
+                        for (JsonArray polyArr : arr.arrays()) {
+                            JsonArray outerBoundary = polyArr.get(0).asArray();
+                            PointList polyList = GeocoderHelper.polygonToPointList(outerBoundary);
+                            // TODO simplify polyList!!  
+                            
+                            outerBoundary = GeocoderHelper.pointListToArray(polyList);
+                            JsonArray polyBoundary = array();
+                            polyBoundary.add(outerBoundary);
+                            coordinates.add(polyBoundary);
                         }
 
+                        if (coordinates.isEmpty())
+                            continue;
+
+                        // TODO Collections.sort(arr);
+
+                        // pick middle point from largest polygon == first polygon
+                        middlePoint = GeocoderHelper.calcCentroid(GeocoderHelper.polygonToPointList(
+                                coordinates.get(0).asArray().get(0).asArray()));
+
                         result.put("has_bounds", true);
-                        JsonArray coordinates = array();
-                        coordinates.add(tmpRes);
-                        result.put("bounds", $(_("type", "polygon"), _("coordinates", coordinates)));
+                        result.put("bounds", $(_("type", "multipolygon"), _("coordinates", coordinates)));
                     }
 
                 } else {
                     throw new IllegalStateException("wrong geometry format:" + key + " -> " + el.toString());
                 }
 
-                if (middlePoint == null)
-                    continue;
-
-                // lon,lat
-                result.put("center", array(middlePoint[1], middlePoint[0]));
+                if (middlePoint != null)
+                    // lon,lat
+                    result.put("center", array(middlePoint[1], middlePoint[0]));
 
             } else if (key.equalsIgnoreCase("center_node")) {
                 // a relation normally has a center_node associated -> could make fetching easier/faster
@@ -237,10 +247,8 @@ public class JsonFeeder {
             } else if (key.equalsIgnoreCase("categories")) {
                 // no need for now
                 // b.field("tags", GeocoderHelper.toMap(el.asObject().getObject("osm")));                            
-                
             } else if (key.equalsIgnoreCase("name")) {
                 // already done
-
             } else if (key.equalsIgnoreCase("names")) {
                 JsonObject obj = el.asObject();
                 JsonObject names = result.getOrCreateObject("names");

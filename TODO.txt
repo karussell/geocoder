@@ -1,4 +1,4 @@
-* multipolygon like bayreuth! pick the biggest or just feed as multi polygon?
+* feed multi polygons. -> see bayreuth! but sort by area (or max distance to first point)
     http://www.openstreetmap.org/browse/relation/62640
 
 MapperParsingException[failed to parse [bounds]]; 
@@ -7,6 +7,13 @@ MapperParsingException[failed to parse [bounds]];
     -> ogr2ogr has a simplify option that does something similar and also gets rid of self intersections.
     -> or use JTS http://stackoverflow.com/questions/17613561/solr-spatial-search-with-self-intersecting-polygons
     -> not that often. see name = Krumbach -> http://www.openstreetmap.org/browse/relation/444105
+    http://www8.cs.umu.se/kurser/TDBAfl/VT06/algorithms/BOOK/BOOK5/NODE195.HTM
+        -> instead of peucker do convex hull, probably okaish but I don't like it
+        -> instead of peucker via remove, do peucker via adding points and see if that fits the original polygon
+        -> intersection detection http://www8.cs.umu.se/kurser/TDBAfl/VT06/algorithms/BOOK/BOOK4/NODE191.HTM
+    try Concave Hull, alpha shapes -> http://gis.stackexchange.com/questions/1200/what-are-definition-algorithms-and-practical-solutions-for-concave-hull            
+            LGPL https://github.com/openplans/OpenTripPlanner/blob/master/otp-core/src/main/java/org/opensphere/geometry/algorithm/ConcaveHull.java
+            BSD http://code.google.com/p/stemptag/source/browse/src/placerefs/gazetteer/ConcaveHullBuilder.java
 
 * check bounds and center -> query for correctness, also if lat,lon order is correct while feeding
 

@@ -100,8 +100,33 @@ public class JsonFeederTest extends AbstractNodesTests {
     }
 
     @Test
-    public void testFeedRelation() {
-        JsonObject obj = MyOsmPostProcessorTest.createRelationObj();
+    public void testFeedPolygon() {
+        JsonObject obj = MyOsmPostProcessorTest.createPolygon();
+        MyOsmPostProcessor postProc = new MyOsmPostProcessor(new JsonParser());
+        obj = postProc.interpretTags(obj, obj);
+
+        List<JsonObject> list = new ArrayList<JsonObject>();
+        list.add(obj);
+        Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
+        assertEquals("bulk update should not produce errors", 0, res.size());
+        refresh(osmIndex);
+
+        SearchResponse rsp = queryHandler.rawRequest("has_boundary:true");
+        assertEquals(1, rsp.getHits().getTotalHits(), 1);
+
+        rsp = queryHandler.rawRequest("has_boundary:false");
+        assertEquals(0, rsp.getHits().getTotalHits());
+
+        rsp = queryHandler.rawRequest("admin_level:7");
+        assertEquals(1, rsp.getHits().getTotalHits());
+
+        rsp = queryHandler.rawRequest("admin_level:6");
+        assertEquals(0, rsp.getHits().getTotalHits());
+    }
+    
+    @Test
+    public void testFeedMultiPolygon() {
+        JsonObject obj = MyOsmPostProcessorTest.createMultiPolygon();
         MyOsmPostProcessor postProc = new MyOsmPostProcessor(new JsonParser());
         obj = postProc.interpretTags(obj, obj);
 

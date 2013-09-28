@@ -3,6 +3,7 @@ package com.graphhopper.geocoder;
 import com.github.jsonj.JsonArray;
 import com.github.jsonj.JsonElement;
 import com.github.jsonj.JsonObject;
+import static com.github.jsonj.tools.JsonBuilder.array;
 import com.graphhopper.util.DistanceCalc;
 import com.graphhopper.util.DistancePlaneProjection;
 import com.graphhopper.util.PointList;
@@ -113,7 +114,8 @@ public class GeocoderHelper {
     }
 
     /**
-     * Polygon: JsonArray or JsonArrays containing lon,lat arrays
+     * Calculates the mean value out of all lat,lon pairs. Use calcCentroid for
+     * a more precise calculation.
      */
     static double[] calcSimpleMean(PointList list) {
         if (list.isEmpty())
@@ -163,17 +165,25 @@ public class GeocoderHelper {
         return new double[]{lat, lon};
     }
 
-    public static PointList toPointList(JsonArray arr) {
+    public static JsonArray pointListToArray(PointList polyList) {
+        JsonArray tmpRes = array();
+        for (int i = 0; i < polyList.getSize(); i++) {
+            // lon,lat
+            tmpRes.add(array(polyList.getLongitude(i), polyList.getLatitude(i)));
+        }
+        return tmpRes;
+    }
+
+    public static PointList polygonToPointList(JsonArray arr) {
         if (arr.isEmpty())
             return PointList.EMPTY;
 
         PointList list = new PointList();
-        for (JsonArray innerArr : arr.arrays()) {
-            for (JsonArray innerstArr : innerArr.arrays()) {
-                double tmpLat = innerstArr.get(1).asDouble();
-                double tmpLon = innerstArr.get(0).asDouble();
-                list.add(tmpLat, tmpLon);
-            }
+        for (JsonArray innerstArr : arr.arrays()) {
+            // lat,lon
+            double tmpLat = innerstArr.get(1).asDouble();
+            double tmpLon = innerstArr.get(0).asDouble();
+            list.add(tmpLat, tmpLon);
         }
         return list;
     }
