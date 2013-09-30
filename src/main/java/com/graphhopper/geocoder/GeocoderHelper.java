@@ -7,13 +7,19 @@ import static com.github.jsonj.tools.JsonBuilder.array;
 import com.graphhopper.util.DistanceCalc;
 import com.graphhopper.util.DistancePlaneProjection;
 import com.graphhopper.util.PointList;
+import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.GeometryFactory;
+import com.vividsolutions.jts.geom.Point;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -117,7 +123,19 @@ public class GeocoderHelper {
      * Calculates the mean value out of all lat,lon pairs. Use calcCentroid for
      * a more precise calculation.
      */
-    static double[] calcSimpleMean(PointList list) {
+    static double[] calcSimpleMean(List<Point> list) {
+        if (list.isEmpty())
+            return null;
+        double lat = 0, lon = 0;
+        int max = list.size();
+        for (Point p : list) {
+            lat += p.getY();
+            lon += p.getX();
+        }
+        return new double[]{lat / max, lon / max};
+    }
+
+    static double[] calcSimpleMeanGH(PointList list) {
         if (list.isEmpty())
             return null;
         double lat = 0, lon = 0;
@@ -129,10 +147,7 @@ public class GeocoderHelper {
         return new double[]{lat / max, lon / max};
     }
 
-    /**
-     * Polygon: JsonArray or JsonArrays containing lon,lat arrays
-     */
-    static double[] calcCentroid(PointList list) {
+    static double[] calcCentroidGH(PointList list) {
         if (list.isEmpty())
             return null;
 
@@ -165,7 +180,52 @@ public class GeocoderHelper {
         return new double[]{lat, lon};
     }
 
-    public static JsonArray pointListToArray(PointList polyList) {
+    /**
+     * Polygon: JsonArray or JsonArrays containing lon,lat arrays
+     */
+    static double[] calcCentroid(List<Point> list) {
+        if (list.isEmpty())
+            return null;
+
+        double lat = 0, lon = 0;
+        double polyArea = 0;
+
+        // lat = y, lon = x
+        // TMP(i) = (lon_i * lat_(i+1) - lon_(i+1) * lat_i)
+        // A = 1/2 sum_0_to_n-1 TMP(i)
+        // lat = C_y = 1/6A sum (lat_i + lat_(i+1) ) * TMP(i)
+        // lon = C_x = 1/6A sum (lon_i + lon_(i+1) ) * TMP(i)        
+
+        int max = list.size() - 1;
+        for (int i = 0; i < max; i++) {
+            Point p = list.get(i);
+            Point pNext = list.get(i + 1);
+            double tmpLat = p.getY();
+            double tmpLat_p1 = pNext.getY();
+            double tmpLon = p.getX();
+            double tmpLon_p1 = pNext.getX();
+            double TMP = tmpLon * tmpLat_p1 - tmpLon_p1 * tmpLat;
+            polyArea += TMP;
+            lat += (tmpLat + tmpLat_p1) * TMP;
+            lon += (tmpLon + tmpLon_p1) * TMP;
+        }
+        polyArea /= 2;
+        lat = lat / (6 * polyArea);
+        lon = lon / (6 * polyArea);
+
+        return new double[]{lat, lon};
+    }
+
+    public static JsonArray pointListToArray(List<Point> pointList) {
+        JsonArray tmpRes = array();
+        for (Point p : pointList) {
+            // lon,lat
+            tmpRes.add(array(p.getX(), p.getY()));
+        }
+        return tmpRes;
+    }
+
+    public static JsonArray pointListGHToArray(PointList polyList) {
         JsonArray tmpRes = array();
         for (int i = 0; i < polyList.getSize(); i++) {
             // lon,lat
@@ -173,8 +233,26 @@ public class GeocoderHelper {
         }
         return tmpRes;
     }
+    private static GeometryFactory gf = new GeometryFactory();
 
-    public static PointList polygonToPointList(JsonArray arr) {
+    public static List<Point> polygonToPointList(JsonArray arr) {
+        if (arr.isEmpty())
+            return Collections.EMPTY_LIST;
+
+        List<Point> list = new ArrayList<Point>(arr.size());
+        for (JsonArray innerstArr : arr.arrays()) {
+
+            Coordinate c = new Coordinate();
+            // lon
+            c.x = innerstArr.get(0).asDouble();
+            // lat
+            c.y = innerstArr.get(1).asDouble();
+            list.add(gf.createPoint(c));
+        }
+        return list;
+    }
+
+    public static PointList polygonToGHPointList(JsonArray arr) {
         if (arr.isEmpty())
             return PointList.EMPTY;
 

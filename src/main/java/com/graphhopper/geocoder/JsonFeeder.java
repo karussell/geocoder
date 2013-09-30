@@ -9,7 +9,7 @@ import static com.github.jsonj.tools.JsonBuilder.$;
 import static com.github.jsonj.tools.JsonBuilder._;
 import static com.github.jsonj.tools.JsonBuilder.array;
 import com.google.inject.Inject;
-import com.graphhopper.util.PointList;
+import com.vividsolutions.jts.geom.Point;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -30,6 +30,7 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.placerefs.gazetteer.ConcaveHullBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,21 +154,12 @@ public class JsonFeeder {
         JsonObject result = new JsonObject();
         boolean foundLocation = false;
         boolean foundPopulation = false;
-        boolean adminBounds = false;
-        JsonObject catObj = o.getObject("categories");
-        if (catObj != null && catObj.get("osm") != null) {
-            JsonElement strType = catObj.get("osm").asObject().get("type");
-            if (strType != null && "boundary".equals(strType.asString()))
-                adminBounds = true;
-        }
         String name = o.getString("name");
         result.put("name", fixName(name));
 
         JsonElement type = o.get("type");
         if (type == null)
             logger.warn("no type associated " + o);
-        else if ("boundary".equals(type.asString()))
-            adminBounds = true;
 
         for (Entry<String, JsonElement> e : o.entrySet()) {
             JsonElement el = e.getValue();
@@ -193,12 +185,12 @@ public class JsonFeeder {
                 } else if ("Polygon".equalsIgnoreCase(geoType)) {
                     // A polygon is defined by a list of a list of points. The first and last points in each list must be the same (the polygon must be closed).
                     // The first array represents the outer boundary of the polygon (unsupported: the other arrays represent the interior shapes (holes))
-                    PointList polyList = GeocoderHelper.polygonToPointList(arr.get(0).asArray());
-                    middlePoint = GeocoderHelper.calcCentroid(polyList);
-                    // TODO simplify polyList!!
+                    List<Point> pointList = GeocoderHelper.polygonToPointList(arr.get(0).asArray());
+                    middlePoint = GeocoderHelper.calcCentroid(pointList);
+                    simplify(pointList);
 
                     JsonArray polyBoundary = array();
-                    polyBoundary.add(GeocoderHelper.pointListToArray(polyList));
+                    polyBoundary.add(GeocoderHelper.pointListToArray(pointList));
                     result.put("has_bounds", true);
                     result.put("bounds", $(_("type", "polygon"),
                             _("coordinates", polyBoundary)));
@@ -206,31 +198,30 @@ public class JsonFeeder {
                 } else if ("MultiPolygon".equalsIgnoreCase(geoType)) {
                     // multipolygon is an array of array of coordinates (array)
                     // "geometry":{"type":"MultiPolygon","coordinates":[ (first polygon) [[lon, lat], ..], (next) [[lon, lat], ..]]                    
-                    if (adminBounds) {
-                        JsonArray coordinates = array();
-                        for (JsonArray polyArr : arr.arrays()) {
-                            JsonArray outerBoundary = polyArr.get(0).asArray();
-                            PointList polyList = GeocoderHelper.polygonToPointList(outerBoundary);
-                            // TODO simplify polyList!!  
-                            
-                            outerBoundary = GeocoderHelper.pointListToArray(polyList);
-                            JsonArray polyBoundary = array();
-                            polyBoundary.add(outerBoundary);
-                            coordinates.add(polyBoundary);
-                        }
 
-                        if (coordinates.isEmpty())
-                            continue;
+                    JsonArray coordinates = array();
+                    for (JsonArray polyArr : arr.arrays()) {
+                        JsonArray outerBoundary = polyArr.get(0).asArray();
+                        List<Point> pointList = GeocoderHelper.polygonToPointList(outerBoundary);
+                        simplify(pointList);
 
-                        // TODO Collections.sort(arr);
-
-                        // pick middle point from largest polygon == first polygon
-                        middlePoint = GeocoderHelper.calcCentroid(GeocoderHelper.polygonToPointList(
-                                coordinates.get(0).asArray().get(0).asArray()));
-
-                        result.put("has_bounds", true);
-                        result.put("bounds", $(_("type", "multipolygon"), _("coordinates", coordinates)));
+                        outerBoundary = GeocoderHelper.pointListToArray(pointList);
+                        JsonArray polyBoundary = array();
+                        polyBoundary.add(outerBoundary);
+                        coordinates.add(polyBoundary);
                     }
+
+                    if (coordinates.isEmpty())
+                        continue;
+
+                    // TODO Collections.sort(arr);
+
+                    // pick middle point from largest polygon == first polygon
+                    middlePoint = GeocoderHelper.calcCentroid(GeocoderHelper.polygonToPointList(
+                            coordinates.get(0).asArray().get(0).asArray()));
+
+                    result.put("has_bounds", true);
+                    result.put("bounds", $(_("type", "multipolygon"), _("coordinates", coordinates)));
 
                 } else {
                     throw new IllegalStateException("wrong geometry format:" + key + " -> " + el.toString());
@@ -307,6 +298,21 @@ public class JsonFeeder {
             name = GeocoderHelper.innerTrim(name);
         }
         return name;
+    }
+    ConcaveHullBuilder concaveHull = new ConcaveHullBuilder();
+
+    public JsonObject simplify(List<Point> pointList) {
+        List<double[]> result = concaveHull.getConcaveHull(pointList, 0.0001);
+        JsonObject outerBoundary = new JsonObject();
+        System.out.print("[");
+        for (double[] line : result) {            
+            // TODO create boundary from random lines!?!?
+            // use again WayManager stuff?
+            // but now based on coordinates :(
+            // -> change to indices in algo
+        }
+        System.out.print("]");
+        return outerBoundary;
     }
 
     public void initIndices() {

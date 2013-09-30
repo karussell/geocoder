@@ -1,22 +1,31 @@
-* feed multi polygons. -> see bayreuth! but sort by area (or max distance to first point)
-    http://www.openstreetmap.org/browse/relation/62640
+# how to avoid landkreis? http://www.openstreetmap.org/browse/relation/62378
+   vs. stadt http://www.openstreetmap.org/browse/relation/62640    
+   ignore if    de:place = state|county
+       or if border_type = state|county 
 
-MapperParsingException[failed to parse [bounds]]; 
-    nested: InvalidShapeException[Self-intersection at or near point (48.284235162589326, 10.375858042415862, NaN)]; 
-    -> PROBLEM via peucker: when we do douglas peucker then the shape is overlapping!
-    -> ogr2ogr has a simplify option that does something similar and also gets rid of self intersections.
-    -> or use JTS http://stackoverflow.com/questions/17613561/solr-spatial-search-with-self-intersecting-polygons
-    -> not that often. see name = Krumbach -> http://www.openstreetmap.org/browse/relation/444105
-    http://www8.cs.umu.se/kurser/TDBAfl/VT06/algorithms/BOOK/BOOK5/NODE195.HTM
-        -> instead of peucker do convex hull, probably okaish but I don't like it
-        -> instead of peucker via remove, do peucker via adding points and see if that fits the original polygon
-        -> intersection detection http://www8.cs.umu.se/kurser/TDBAfl/VT06/algorithms/BOOK/BOOK4/NODE191.HTM
-    try Concave Hull, alpha shapes -> http://gis.stackexchange.com/questions/1200/what-are-definition-algorithms-and-practical-solutions-for-concave-hull            
-            LGPL https://github.com/openplans/OpenTripPlanner/blob/master/otp-core/src/main/java/org/opensphere/geometry/algorithm/ConcaveHull.java
-            BSD http://code.google.com/p/stemptag/source/browse/src/placerefs/gazetteer/ConcaveHullBuilder.java
+# get rid of those errors!
+    http://www.openstreetmap.org/browse/way/35286884
+        Overwrite type 'boundary' with 'track' for {"id":35286884,"nodes":[{"id":324149739,"l":[12.1351319,48.7650644]},{"id":323480916,"l":[12.1361158,48.7648924]},{"id":323323436,"l":[12.1366547,48.7646064]},{"id":323424465,"l":[12.1372986,48.7644545]},{"id":323325645,"l":[12.1387964,48.7635046]},{"id":1003509196,"l":[12.13963,48.7633553]},{"id":323359115,"l":[12.1404602,48.7632066]},{"id":323626937,"l":[12.1415911,48.7633516]},{"id":324011030,"l":[12.1428259,48.7636416]}]}
+    http://www.openstreetmap.org/browse/way/35286889
+        Overwrite type 'boundary' with 'track' for {"id":35286889,"nodes":[{"id":413634840,"l":[12.1351361,48.765643]},{"id":323554139,"l":[12.134977,48.7652824]},{"id":324149739,"l":[12.1351319,48.7650644]}]}
 
-* check bounds and center -> query for correctness, also if lat,lon order is correct while feeding
+# concave hull
+  check quality (difference) 
+    => fetch from graphhopper web the ES boundaries/coordinates
+    => feed both (bounds + orig_bounds?)
+    => check center
+  and speed
+    test peucker (50m)
+        all 463318:      6 minutes
+        all 466507 docs: 8 minutes 9-48 seconds
+    test concave hull
+        all 466507 docs: XY
 
+# full germany on hserver! test how long this takes!
+  try feeding for for europe, ww
+
+# new params: fuzzy=true/false (e.g. autocomplete should filter more aggressive)
+              include not only 'nearby' but also 'locale'!
 # set city/village of every street!
     for(v : get(all villages)) {
        for(s : get(streets and pois with no address in v.adminBounds) {
@@ -32,7 +41,7 @@ MapperParsingException[failed to parse [bounds]];
     https://github.com/elasticsearch/elasticsearch/issues/3522
     https://github.com/elasticsearch/elasticsearch/issues/3465
     https://github.com/elasticsearch/elasticsearch/issues/3442
-# TODO tags object needs mapping
+# instead of population => calculate area and sort by area? => more complete data!
 # create integration test for bavaria
   one entity:    
     bay -> bayern + bayreuth
@@ -58,17 +67,18 @@ MapperParsingException[failed to parse [bounds]];
     Jugendherberge/LIMARE
     Bahnhof Bayreuth
     isle of man -> GB
+    moto nützel bayreuth -> Motor Nützel, Justus-Liebig-Straße, Jakobshof, Hetzennest, Bayreuth, Regierungsbezirk Oberfranken
 
+* fix/think about "failed to add" messages
+* problem if several threads/processes are using SortingWriter -> this should include a random or unique number
+   File file = new File(tempDir, "bucket-" + bucketNr + ".gz");   
 * https://github.com/elasticsearch/elasticsearch/issues/3717
 * include wikipedia somehow http://productforums.google.com/forum/m/#!topic/maps/toaewYdz0kg
    http://wikimapia.org, http://retred.org/, http://www.wikivoyage.org/
 * boost streets (e.g. not bus_stop)
 * should we de-duplicate? and how?
 * street additionally has array of housenumber+locations, and higher_level_population
-* how to associate street to city? or is it already done?
-* try querying ala "user input*"
-  try feeding for for germany, europe, ww
-  integrate into graphhopper enterprise -> /geocoder?input=blup&autocomplete=true&reverse=false
+* integrate into graphhopper enterprise -> /geocoder?input=blup&autocomplete=true&reverse=false
       edge-ngrams and match prefix queries
         http://www.elasticsearch.org/guide/reference/query-dsl/prefix-query/
         http://www.elasticsearch.org/guide/reference/query-dsl/match-query/
@@ -79,9 +89,7 @@ MapperParsingException[failed to parse [bounds]];
       
       via facets -> ElasticTweetSearch.getQueryChoices -> context dependent autocomplete!
             split the query into “completed” terms and one “to do” term. E.g. if you enter “michael jack”. Then michael is complete (ends with space) and jack should be completed. set the query term of the old query to michael and add the facet.prefix=jack            
-
-  prefer bigger cities
-  check if simple city queries work
+* check if simple city queries work
   see nominatim issues and http://klauszanders.de/blog/2012/10/15/how-to-start-your-own-geocoder-in-48-hours/
   autocomplete
     http://www.devbridge.com/projects/autocomplete/jquery/#how-to-use
@@ -89,10 +97,6 @@ MapperParsingException[failed to parse [bounds]];
         http://designshack.net/articles/javascript/create-a-simple-autocomplete-with-html5-jquery/
     https://github.com/dyve/jquery-autocomplete
     http://jqueryui.com/autocomplete/
-
- * fixing "failed to add" messages
- * problem if several threads/processes are using SortingWriter -> this should include a random or unique number
-   File file = new File(tempDir, "bucket-" + bucketNr + ".gz");   
 
 Nominatim issues: 
  * rio grande -> fluss vs. stadt!
@@ -102,3 +106,25 @@ Nominatim issues:
  * does often not work when no comma before zipcodes. e.g.: ABC Strasse 19, 20354 Hamburg
  * dyon -> dijon france
  * bayreuth grafenreutherstrasse ->bayreuth gravenreutherstrasse 
+
+
+
+MapperParsingException[failed to parse [bounds]]; 
+    nested: InvalidShapeException[Self-intersection at or near point (48.284235162589326, 10.375858042415862, NaN)]; 
+    -> PROBLEM via peucker: when we do douglas peucker then the shape is overlapping!
+    -> ogr2ogr has a simplify option that does something similar and also gets rid of self intersections.
+    -> or use JTS http://stackoverflow.com/questions/17613561/solr-spatial-search-with-self-intersecting-polygons
+    -> not that often. see name = Krumbach -> http://www.openstreetmap.org/browse/relation/444105
+    http://www8.cs.umu.se/kurser/TDBAfl/VT06/algorithms/BOOK/BOOK5/NODE195.HTM
+        -> instead of peucker via remove, do peucker via adding points and see if that fits the original polygon
+        -> intersection detection http://www8.cs.umu.se/kurser/TDBAfl/VT06/algorithms/BOOK/BOOK4/NODE191.HTM
+    try Concave Hull, alpha shapes -> http://gis.stackexchange.com/questions/1200/what-are-definition-algorithms-and-practical-solutions-for-concave-hull            
+            LGPL https://github.com/openplans/OpenTripPlanner/blob/master/otp-core/src/main/java/org/opensphere/geometry/algorithm/ConcaveHull.java
+            BSD http://code.google.com/p/stemptag/source/browse/src/placerefs/gazetteer/ConcaveHullBuilder.java
+
+=> approach 1: concave hull
+   approach 2: instead of peucker via remove, do peucker via adding points, only add point if "massive change" of polygon area toward the original area
+    see area calculation: http://en.wikipedia.org/wiki/Polygon and http://www.mathopenref.com/coordpolygonarea2.html
+    and before adding make a point in polygon test! http://en.wikipedia.org/wiki/Point_in_polygon
+    additionally look upwards or downwards between two points if this is inside or outside 
+        => has to be the same returned from the "point in polygon" test! otherwise it will result in a self intersecting polygon!
