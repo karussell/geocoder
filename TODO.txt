@@ -1,3 +1,8 @@
+can we fix this? 
+    Overwrite type 'boundary' with 'path' for {"id":170279753,"nodes":[{"id":1814324148,"l":[12.5030643,50.7124814]},{"id":1814324149,"l":[12.5038515,50.71299]},{"id":676889329,"l":[12.5046431,50.7131856]},{"id":676889330,"l":[12.5075923,50.7139176]},{"id":676889334,"l":[12.5099526,50.7141893]},{"id":676889344,"l":[12.5132571,50.7144067]},{"id":676889353,"l":[12.5157462,50.714461]},{"id":676889361,"l":[12.5175057,50.7144882]},{"id":676889372,"l":[12.5206814,50.7148958]},{"id":1612772777,"l":[12.5211581,50.7148869]},{"id":676889379,"l":[12.5221406,50.7148686]},{"id":676889389,"l":[12.5290048,50.7148633]},{"id":676889401,"l":[12.5314177,50.7149927]},{"id":676889409,"l":[12.5327003,50.7151299]}]}
+    second pointer was already assigned. node:1627882298, relId:null,Connewitz
+    Error:MapperParsingException[failed to parse [bounds]]; nested: IllegalArgumentException[Invalid number of points in LineString (found 1 - must be 0 or >= 2)]; 
+
 # how to avoid landkreis? http://www.openstreetmap.org/browse/relation/62378
    vs. stadt http://www.openstreetmap.org/browse/relation/62640    
    ignore if    de:place = state|county
@@ -9,14 +14,14 @@
     http://www.openstreetmap.org/browse/way/35286889
         Overwrite type 'boundary' with 'track' for {"id":35286889,"nodes":[{"id":413634840,"l":[12.1351361,48.765643]},{"id":323554139,"l":[12.134977,48.7652824]},{"id":324149739,"l":[12.1351319,48.7650644]}]}
 
-# concave hull -> too slow
+# concave hull -> too slow -> create simplified boundary via LocationIndex somehow ==> paint border on a grid like format and choose the outer 'pixels' to form the resulting border!
   test peucker (50m)
         all 463318:      6 minutes
         all 466507 docs: 8 minutes 9-48 seconds
   see this - it includes a fixer (but could be expensive operation!) http://grepcode.com/file/repo1.maven.org/maven2/com.vividsolutions/jts/1.12/com/vividsolutions/jts/simplify/DouglasPeuckerSimplifier.java#DouglasPeuckerSimplifier.DPTransformer
 
 # full germany on hserver! test how long this takes!
-  try feeding for for europe, ww
+  try feeding for europe, ww
 
 # new params: fuzzy=true/false (e.g. autocomplete should filter more aggressive)
               include not only 'nearby' but also 'locale'!
@@ -62,6 +67,8 @@
     bayreuth sportzentrum => pottenstein!?!?
     100 Institute Road, Worcester, MA 01609 and it sent me here 100 Institute Road, Grafton, MA 01536 
     Stauffenbergallee 7A, 01099 Dresden
+    Stresemannstr. 36, 10963 Berlin -> if missing number use existing number like 37
+    berlin anhalterbhf or berlin anhalterbahnhof
   poi
     Checkpoint charlie Berlin vs charly
     Jugendherberge/LIMARE

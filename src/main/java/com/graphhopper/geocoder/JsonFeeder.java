@@ -304,14 +304,14 @@ public class JsonFeeder {
     public JsonObject simplify(List<Point> pointList) {
         List<double[]> result = concaveHull.getConcaveHull(pointList, 0.0001);
         JsonObject outerBoundary = new JsonObject();
-        System.out.print("[");
+        // System.out.print("[");
         for (double[] line : result) {            
             // TODO create boundary from random lines!?!?
             // use again WayManager stuff?
             // but now based on coordinates :(
             // -> change to indices in algo
         }
-        System.out.print("]");
+        // System.out.print("]");
         return outerBoundary;
     }
 
