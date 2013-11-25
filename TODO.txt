@@ -1,7 +1,7 @@
 # how to avoid landkreis? http://www.openstreetmap.org/browse/relation/62378
    vs. stadt http://www.openstreetmap.org/browse/relation/62640    
    ignore if    de:place = state|county
-       or if border_type = state|county 
+       or if border_type = state|county
 
 # get rid of those errors!
     http://www.openstreetmap.org/browse/way/35286884
@@ -9,17 +9,11 @@
     http://www.openstreetmap.org/browse/way/35286889
         Overwrite type 'boundary' with 'track' for {"id":35286889,"nodes":[{"id":413634840,"l":[12.1351361,48.765643]},{"id":323554139,"l":[12.134977,48.7652824]},{"id":324149739,"l":[12.1351319,48.7650644]}]}
 
-# concave hull
-  check quality (difference) 
-    => fetch from graphhopper web the ES boundaries/coordinates
-    => feed both (bounds + orig_bounds?)
-    => check center
-  and speed
-    test peucker (50m)
+# concave hull -> too slow
+  test peucker (50m)
         all 463318:      6 minutes
         all 466507 docs: 8 minutes 9-48 seconds
-    test concave hull
-        all 466507 docs: XY
+  see this - it includes a fixer (but could be expensive operation!) http://grepcode.com/file/repo1.maven.org/maven2/com.vividsolutions/jts/1.12/com/vividsolutions/jts/simplify/DouglasPeuckerSimplifier.java#DouglasPeuckerSimplifier.DPTransformer
 
 # full germany on hserver! test how long this takes!
   try feeding for for europe, ww
@@ -50,11 +44,14 @@
     Fuerth und Fürt und Fuert
     roter main -> should get some street not the river
     Bahnhofstraße Bayreuth => will be resolved into bindlach
+    bayreuth bahnhof -> hollfeld!?!?
+    potsdam bahnhof -> Bahnhof, Potsdamer Straße, Michendorf!?
     Postbauer heng
     Lauf Pegnitz 
     Kufsteinerstraße/Alpenweg
     Hof/Töpen
     fuzzy: grevenberg -> gräfenberg
+    weiden oberpfalz -> falsche coords in nominatim
   two entities
     Bahnhofstraße Bayreuth -> not Bindlach!    
     Hasloh Hagenkampsweg => nothing found although it found hasloh
@@ -63,7 +60,10 @@
     steinbank neudorf/spree -> not "steinbank neudorf
     bayreuth Sportzentrum, Am Sportpark 3 
     bayreuth sportzentrum => pottenstein!?!?
+    100 Institute Road, Worcester, MA 01609 and it sent me here 100 Institute Road, Grafton, MA 01536 
+    Stauffenbergallee 7A, 01099 Dresden
   poi
+    Checkpoint charlie Berlin vs charly
     Jugendherberge/LIMARE
     Bahnhof Bayreuth
     isle of man -> GB
@@ -106,8 +106,12 @@ Nominatim issues:
  * does often not work when no comma before zipcodes. e.g.: ABC Strasse 19, 20354 Hamburg
  * dyon -> dijon france
  * bayreuth grafenreutherstrasse ->bayreuth gravenreutherstrasse 
+ * bauhof bayreuth -> Am Bauhof bayreuth!
 
-
+Infos
+ * http://blog.wheerd.de/2012/03/11/cutting-concave-polygons/
+   -> http://hg.wheerd.de/Game/file/tip/src/de/wheerd/game/util/ShapeUtil.java#l623
+ * fast and simple point in polygon algo http://stackoverflow.com/a/2922778/194609
 
 MapperParsingException[failed to parse [bounds]]; 
     nested: InvalidShapeException[Self-intersection at or near point (48.284235162589326, 10.375858042415862, NaN)]; 
@@ -128,3 +132,6 @@ MapperParsingException[failed to parse [bounds]];
     and before adding make a point in polygon test! http://en.wikipedia.org/wiki/Point_in_polygon
     additionally look upwards or downwards between two points if this is inside or outside 
         => has to be the same returned from the "point in polygon" test! otherwise it will result in a self intersecting polygon!
+   approach 3: paint border on a grid like format and choose the outer 'pixels' to form the resulting border!
+   approach 4: use e.g. points forming a circle and every line then gets a fixed angle-area => now make the circle as small as possible where the outer border should not overlapp the real boundary
+   http://www.scribd.com/doc/3124116/A-Simple-FastEffective-Polygon-Reduction-Algorithm 

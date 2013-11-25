@@ -273,4 +273,24 @@ public class GeocoderHelper {
             return value;
         }
     }
+
+    /**
+     * check if counter clock wise
+     */
+    public static boolean isCCW(PointList poly) {
+        float sum = 0;
+        final int max = poly.getSize() - 1;
+        for (int i = 0; i < poly.getSize(); i++) {
+
+            double point1_lat = poly.getLatitude(i);
+            double point1_lon = poly.getLongitude(i);
+            int tmp = i == max ? 0 : i + 1;
+            double point2_lat = poly.getLatitude(tmp);
+            double point2_lon = poly.getLongitude(tmp);
+            sum += (point1_lon * point2_lat - point2_lon * point1_lat);
+        }
+
+        // If the sign of the area is negative, the order is counter-clockwise
+        return sum > 0;
+    }
 }
