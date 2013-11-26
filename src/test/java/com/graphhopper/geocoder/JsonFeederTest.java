@@ -154,6 +154,7 @@ public class JsonFeederTest extends AbstractNodesTests {
         JsonObject obj = new JsonParser().parse(GeocoderHelper.toString(getClass().getResourceAsStream("krumbach.json"))).asObject();
         List<JsonObject> list = new ArrayList<JsonObject>();
         list.add(obj);
+        feeder.setConfiguration(new Configuration());
         Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
         assertEquals("bulk update should not produce errors", 0, res.size());
         refresh(osmIndex);

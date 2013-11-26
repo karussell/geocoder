@@ -12,6 +12,7 @@ import com.google.inject.Inject;
 import com.graphhopper.geohash.KeyAlgo;
 import com.graphhopper.geohash.SpatialKeyAlgo;
 import com.vividsolutions.jts.geom.Point;
+import gnu.trove.list.array.TLongArrayList;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -32,7 +33,6 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.placerefs.gazetteer.ConcaveHullBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +59,7 @@ public class JsonFeeder {
     @Inject
     private Configuration config;
     private boolean minimalData;
+    private KeyAlgo keyAlgo;
 
     public JsonFeeder() {
     }
@@ -188,10 +189,13 @@ public class JsonFeeder {
                     // A polygon is defined by a list of a list of points. The first and last points in each list must be the same (the polygon must be closed).
                     // The first array represents the outer boundary of the polygon (unsupported: the other arrays represent the interior shapes (holes))
                     List<Point> pointList = GeocoderHelper.polygonToPointList(arr.get(0).asArray());
-                    middlePoint = GeocoderHelper.calcCentroid(pointList);
-                    JsonArray boundary = simplify(pointList);
+                    if (pointList.size() < 4)
+                        continue;
 
-                    if (boundary.size() > 2) {
+                    middlePoint = GeocoderHelper.calcCentroid(pointList);
+                    JsonArray boundary = simplify(pointList, arr.get(0).asArray());
+
+                    if (boundary.size() > 3) {
                         JsonArray polyBoundary = array();
                         polyBoundary.add(boundary);
                         result.put("has_bounds", true);
@@ -207,9 +211,11 @@ public class JsonFeeder {
                     for (JsonArray polyArr : arr.arrays()) {
                         JsonArray outerBoundary = polyArr.get(0).asArray();
                         List<Point> pointList = GeocoderHelper.polygonToPointList(outerBoundary);
-                        outerBoundary = simplify(pointList);
+                        if (pointList.size() < 4)
+                            continue;
 
-                        if (outerBoundary.size() > 2) {
+                        outerBoundary = simplify(pointList, outerBoundary);
+                        if (outerBoundary.size() > 3) {
                             JsonArray polyBoundary = array();
                             polyBoundary.add(outerBoundary);
                             coordinates.add(polyBoundary);
@@ -304,24 +310,51 @@ public class JsonFeeder {
         return name;
     }
 
-    KeyAlgo keyAlgo = new SpatialKeyAlgo(48);
+    int counter = 0;
+    float res = 0;
 
     /**
      * A very simple simplify algorithm. Create the spatial key of a point and
      * compare to the previous one. If identical -> skip. So, if the resolution
-     * is very low only a few points are added to the resulting array.
+     * is very low only a few points are added to the rboundaryesulting array.
      */
-    public JsonArray simplify(List<Point> pointList) {
+    public JsonArray simplify(List<Point> pointList, JsonArray orig) {
+        // skip simplify if small boundary
+        if (orig.size() < config.getSmallBoundary())
+            return orig;
+
+        if (keyAlgo == null)
+            keyAlgo = new SpatialKeyAlgo(config.getSpatialKeyResolution());
+
         JsonArray outerBoundary = new JsonArray();
-        long lastKey = -1;
-        for (Point p : pointList) {
+        int max = pointList.size();
+        TLongArrayList keys = new TLongArrayList(max);
+        int LAST_N = 3;
+        LOOP:
+        for (int i = 0; i < max; i++) {
+            Point p = pointList.get(i);
             long key = keyAlgo.encode(p.getY(), p.getX());
-            if (key == lastKey)
-                continue;
-            lastKey = key;
+            keys.add(key);
+
+            // Do not skip ends of list, otherwise we get: IllegalArgumentException[Points of LinearRing do not form a closed linestring];
+            if (i > 0 && i < max - 1) {
+                // reduce probability that a boundary intersects via comparing LAST_N elements
+                for (int tmp = i - 1, ii = 0; tmp > 1 && ii < LAST_N; ii++, tmp--) {
+                    if (keys.get(tmp) == key)
+                        continue LOOP;
+                }
+            }
             outerBoundary.add(array(p.getX(), p.getY()));
         }
+        if (outerBoundary.size() < 4) {
+            logger.warn("reduced multi too much: " + outerBoundary.size() + " vs. original " + orig.size());
+            return orig;
+        }
 
+        res += (float) outerBoundary.size() / max;
+        counter++;
+        if (counter % 100 == 0)
+            logger.info("simplified:" + res / counter);
         return outerBoundary;
     }
 

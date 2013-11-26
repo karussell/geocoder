@@ -1,50 +1,62 @@
+feed Germany => approx times 2 => final time with updating
+    ask @osm2geojson if increasing RAM usage is normal
+
+features:
+    * nice I18N => e.g. names.hsb (hornjo sorbian)
+    * fast fuzzy search! bauzen~0.8 or haldendorf~0.8
+    * autocompletion
+    * no nominatim, no postgres, only Java
+    * good import time?
+
 com.github.jsonj.tools.JsonBuilder._; -> unsupported after JDK8
 
-2013-11-26 08:37:43,084 [main] WARN  graphhopper.geocoder.JsonFeeder - Cannot index object osmway/203816457. Error:MapperParsingException[failed to parse]; nested: JsonParseException[Non-standard token 'NaN': enable JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS to allow
- at [Source: [B@1242875; line: 1, column: 34]]; 
+1. get all entries with bounds
+   has_bounds:true => get bounds, center_node and eventually admin_level
+   2. get is_in stuff from center_node
+    => "query": "_id:\"osmnode/29927546\"" => name: Pirna with is_in tags (=> set bounds) or 30361883 => Bautzen
+   3. get all in bounds except bounds+village+town+city+...
+    set is_in array
 
-# concave hull -> too slow 
-  test peucker (50m)
-        all 463318:      6 minutes
-        all 466507 docs: 8 minutes 9-48 seconds
+"query": "type:village OR type:city OR type:town OR type:hamlet OR type:locality"
+    => 3700
 
-can we fix this? 
-    Overwrite type 'boundary' with 'path' for {"id":170279753,"nodes":[{"id":1814324148,"l":[12.5030643,50.7124814]},{"id":1814324149,"l":[12.5038515,50.71299]},{"id":676889329,"l":[12.5046431,50.7131856]},{"id":676889330,"l":[12.5075923,50.7139176]},{"id":676889334,"l":[12.5099526,50.7141893]},{"id":676889344,"l":[12.5132571,50.7144067]},{"id":676889353,"l":[12.5157462,50.714461]},{"id":676889361,"l":[12.5175057,50.7144882]},{"id":676889372,"l":[12.5206814,50.7148958]},{"id":1612772777,"l":[12.5211581,50.7148869]},{"id":676889379,"l":[12.5221406,50.7148686]},{"id":676889389,"l":[12.5290048,50.7148633]},{"id":676889401,"l":[12.5314177,50.7149927]},{"id":676889409,"l":[12.5327003,50.7151299]}]}
-    second pointer was already assigned. node:1627882298, relId:null,Connewitz
-    Error:MapperParsingException[failed to parse [bounds]]; nested: IllegalArgumentException[Invalid number of points in LineString (found 1 - must be 0 or >= 2)]; 
-
-# how to avoid landkreis? http://www.openstreetmap.org/browse/relation/62378
-   vs. stadt http://www.openstreetmap.org/browse/relation/62640    
-   ignore if    de:place = state|county
-       or if border_type = state|county
-
-# get rid of those errors!
-    http://www.openstreetmap.org/browse/way/35286884
-        Overwrite type 'boundary' with 'track' for {"id":35286884,"nodes":[{"id":324149739,"l":[12.1351319,48.7650644]},{"id":323480916,"l":[12.1361158,48.7648924]},{"id":323323436,"l":[12.1366547,48.7646064]},{"id":323424465,"l":[12.1372986,48.7644545]},{"id":323325645,"l":[12.1387964,48.7635046]},{"id":1003509196,"l":[12.13963,48.7633553]},{"id":323359115,"l":[12.1404602,48.7632066]},{"id":323626937,"l":[12.1415911,48.7633516]},{"id":324011030,"l":[12.1428259,48.7636416]}]}
-    http://www.openstreetmap.org/browse/way/35286889
-        Overwrite type 'boundary' with 'track' for {"id":35286889,"nodes":[{"id":413634840,"l":[12.1351361,48.765643]},{"id":323554139,"l":[12.134977,48.7652824]},{"id":324149739,"l":[12.1351319,48.7650644]}]}
-
-# full germany on hserver! test how long this takes!
-  try feeding for europe, ww
-
-# new params: fuzzy=true/false (e.g. autocomplete should filter more aggressive)
-              include not only 'nearby' but also 'locale'!
 # set city/village of every street!
     for(v : get(all villages)) {
-       for(s : get(streets and pois with no address in v.adminBounds) {
+       for(s : get(streets and pois in v.adminBounds with no address) {
           updateStreet(s+=v.address)
        }
     }
-  title: Bahnhofstraße
-  48.0709405, 11.6562796 -> Bahnhofstraße Lenting Germany
-  vs. 49.5774614,10.6025237 ->Bahnhofstraße Neustadt a.d.Aisch Germany
 
+find duplicate streets in Berlin => check zipcode or other different info
+
+# traverse Graph starting at center of a village/city and set the village/city name for all unassigned streets+pois
+
+# tune spatial key resolution for boundary simplification! why is time nearly identical??
+    key=32: 1m27, simplified to 25%
+    key=36: 1m25, simplified to 52%
+    key=40: 1m26, simplified to 80%
+    key=48: 1m24, simplified to 99.8%
+    key=56: 1m24, not simplified!
+    info: 48 relations, 152284 ways (53sec), 53823 nodes (15sec)
+
+can we fix this? 
+    Cannot index object osmrelation/62485. Error:MapperParsingException[failed to parse [bounds]]; nested: InvalidShapeException[Self-intersection at or near point (13.656701304102977, 50.73115275825291, NaN)];
+    Cannot index object osmway/31321783. Error:MapperParsingException[failed to parse [bounds]]; nested: InvalidShapeException[Self-intersection at or near point (12.691212114916365, 50.79287892731631, NaN)]; 
+    2013-11-26 08:37:43,084 [main] WARN  graphhopper.geocoder.JsonFeeder - Cannot index object osmway/203816457. Error:MapperParsingException[failed to parse]; nested: JsonParseException[Non-standard token 'NaN': enable JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS to allow at [Source: [B@1242875; line: 1, column: 34]];
+    jillesvangurp.osm2geojson.OsmPostProcessor$WayManager - second pointer was already assigned. node:1627882298, relId:2198517,Connewitz
+    check if landkreis is skipped http://www.openstreetmap.org/browse/relation/62378 vs. stadt http://www.openstreetmap.org/browse/relation/62640   
+
+# try feeding for germany, europe and finally ww!
+
+# new params: fuzzy=true/false (e.g. autocomplete should filter more aggressive)
+              include not only 'nearby' but also 'locale'!
 # do suggestions!
   http://www.elasticsearch.org/guide/reference/api/search/completion-suggest/
     https://github.com/elasticsearch/elasticsearch/issues/3522
     https://github.com/elasticsearch/elasticsearch/issues/3465
     https://github.com/elasticsearch/elasticsearch/issues/3442
 # instead of population => calculate area and sort by area? => more complete data!
+    also include type for sorting! town, city, village, hamlet, locality
 # create integration test for bavaria
   one entity:    
     bay -> bayern + bayreuth

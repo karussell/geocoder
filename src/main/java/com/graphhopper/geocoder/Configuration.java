@@ -57,6 +57,20 @@ public class Configuration {
         return Integer.parseInt(value);
     }
 
+    public int getSpatialKeyResolution() {
+        String value = get(appName + ".spatialkey.resolution");
+        if (value == null)
+            return 56;
+        return Integer.parseInt(value);
+    }
+
+    public int getSmallBoundary() {
+        String value = get(appName + ".smallboundary");
+        if (value == null)
+            return 25;
+        return Integer.parseInt(value);
+    }
+
     public File getBaseFolder() {
         String value = get(appName + ".basefolder");
         if (value == null)
@@ -73,7 +87,7 @@ public class Configuration {
             return false;
         return Boolean.parseBoolean(value);
     }
-    
+
     public boolean isMinimalDataMode() {
         String value = get(appName + ".mode.minimaldata");
         if (value == null)

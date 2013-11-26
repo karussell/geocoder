@@ -75,6 +75,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         JsonObject address = new JsonObject();
         JsonObject names = new JsonObject();
         JsonObject osmCategories = new JsonObject();
+        String local_place = null;
         for (Map.Entry<String, JsonElement> entry : tags.entrySet()) {
             String tagName = entry.getKey();
             String value = entry.getValue().asString();
@@ -90,6 +91,8 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             } else if (tagName.startsWith("name:")) {
                 String language = tagName.substring(5);
                 names.put(language, value);
+            } else if (tagName.endsWith(":place")) {
+                local_place = value;
             }
         }
 
@@ -132,7 +135,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         // 'type' is either place (city|town|village), highway (primary|secondary) or boundary.
         // If more than one of these is used in OSM (which makes no sense) then highway over place 
         // and boundary over highway is preferred
-        String type = null;                
+        String type = null;
         value = tags.getString("place");
         if (value != null) {
             type = value;
@@ -145,11 +148,13 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             type = value;
             osmCategories.put("highway", value);
         }
-        
-        boolean isAdminBound = false;
+
+        String border_type = tags.getString("border_type");
+
+        boolean isAreaAdminBound = false;
         value = tags.getString("boundary");
-        if ("administrative".equals(value)) {
-            isAdminBound = true;
+        if ("administrative".equals(value) && notState(local_place) && notState(border_type)) {
+            isAreaAdminBound = true;
             // prefer bounds over highway or place
             type = "boundary";
         }
@@ -169,7 +174,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             mainJson.put("categories", $(_("osm", osmCategories)));
 
         value = tags.getString("admin_level");
-        if (value != null && isAdminBound)
+        if (value != null && isAreaAdminBound)
             try {
                 int adminLevel = Integer.parseInt(value);
                 // accept 7 (towns) and 8 (cities, villages, hamlets)
@@ -247,5 +252,9 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                 mainJson.put("is_in", arr);
         }
         return mainJson;
+    }
+
+    private boolean notState(String val) {
+        return !"county".equals(val) && !"state".equals(val);
     }
 }
