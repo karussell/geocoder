@@ -69,17 +69,12 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
     }
 
     @Override
-    protected JsonObject interpretTags(JsonObject input, JsonObject geoJson) {
+    protected JsonObject interpretTags(JsonObject input, JsonObject mainJson) {
         JsonObject tags = input.getObject("tags");
         input.remove("tags");
         JsonObject address = new JsonObject();
         JsonObject names = new JsonObject();
         JsonObject osmCategories = new JsonObject();
-        // type is either a place (city|town|village) or a street (primary|secondary)
-        // if both is used in OSM (which makes no sense) then street is preferred
-        String type = null;
-        boolean isAdminBound = false;
-        int adminLevel = -1;
         for (Map.Entry<String, JsonElement> entry : tags.entrySet()) {
             String tagName = entry.getKey();
             String value = entry.getValue().asString();
@@ -95,106 +90,106 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             } else if (tagName.startsWith("name:")) {
                 String language = tagName.substring(5);
                 names.put(language, value);
-            } else {
-                if (tagName.equals("highway")) {
-                    if (type != null)
-                        logger.warn("Overwrite type '" + type + "' with '" + value + "' for " + input);
-
-                    // rare OSM issue
-                    // But prefer highway so overwrite e.g. the place=hamlet or locality
-                    type = value;
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("leisure")) {
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("amenity")) {
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("natural")) {
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("historic")) {
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("cuisine")) {
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("junction")) {
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("tourism")) {
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("shop")) {
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("building")) {
-                    osmCategories.put(tagName, value);
-
-                } else if (tagName.equals("admin_level")) {
-                    try {
-                        adminLevel = Integer.parseInt(value);
-                    } catch (NumberFormatException ex) {
-                        logger.warn("cannot parse adminlevel:" + value, ex);
-                    }
-
-                } else if (tagName.equals("boundary")) {
-                    if (!value.equals("administrative"))
-                        continue;
-                    isAdminBound = true;
-
-                    if (type != null) {
-                        // prefer bounds
-                        logger.warn("Overwrite with 'bounds' type '" + value + "' for " + input);
-                    }
-
-                    type = tagName;
-
-                } else if (tagName.equals("place")) {
-                    if (type != null) {
-                        // prefer highway tag
-                        logger.warn("Skipping place '" + value + "' for " + input);
-                        continue;
-                    }
-
-                    type = value;
-                    osmCategories.put(tagName, value);
-                }
             }
         }
 
-        JsonElement name = geoJson.get("title");
-        if (type == null || name == null)
-            return null;
-        geoJson.put("type", type);
-        // I don't like title -> use name instead                
-        geoJson.put("name", name.asString());
-        geoJson.remove("title");
+        String value = tags.getString("leisure");
+        if (value != null)
+            osmCategories.put("leisure", value);
 
-        if (!names.isEmpty())
-            geoJson.put("names", names);
+        value = tags.getString("amenity");
+        if (value != null)
+            osmCategories.put("amenity", value);
 
-        if (!osmCategories.isEmpty())
-            geoJson.put("categories", $(_("osm", osmCategories)));
+        value = tags.getString("natural");
+        if (value != null)
+            osmCategories.put("natural", value);
 
-        if (isAdminBound && adminLevel > 0) {
-            // accept 7 (towns) and 8 (cities, villages, hamlets)
-            // accept 6: cities do not (often?) have boundaries
-            if (adminLevel < 6 || adminLevel > 8)
-                return null;
-            geoJson.put("admin_level", adminLevel);
+        value = tags.getString("historic");
+        if (value != null)
+            osmCategories.put("historic", value);
+
+        value = tags.getString("cuisine");
+        if (value != null)
+            osmCategories.put("cuisine", value);
+
+        value = tags.getString("junction");
+        if (value != null)
+            osmCategories.put("junction", value);
+
+        value = tags.getString("tourism");
+        if (value != null)
+            osmCategories.put("tourism", value);
+
+        value = tags.getString("shop");
+        if (value != null)
+            osmCategories.put("shop", value);
+
+        value = tags.getString("building");
+        if (value != null)
+            osmCategories.put("building", value);
+
+        // 'type' is either place (city|town|village), highway (primary|secondary) or boundary.
+        // If more than one of these is used in OSM (which makes no sense) then highway over place 
+        // and boundary over highway is preferred
+        String type = null;                
+        value = tags.getString("place");
+        if (value != null) {
+            type = value;
+            osmCategories.put("place", value);
         }
 
-        String centerNode = geoJson.getString("admin_centre");
+        value = tags.getString("highway");
+        if (value != null) {
+            // prefer highway so overwrite e.g. the place=hamlet or locality
+            type = value;
+            osmCategories.put("highway", value);
+        }
+        
+        boolean isAdminBound = false;
+        value = tags.getString("boundary");
+        if ("administrative".equals(value)) {
+            isAdminBound = true;
+            // prefer bounds over highway or place
+            type = "boundary";
+        }
+
+        JsonElement name = mainJson.get("title");
+        if (type == null || name == null)
+            return null;
+        mainJson.put("type", type);
+        // I don't like title -> use name instead                
+        mainJson.put("name", name.asString());
+        mainJson.remove("title");
+
+        if (!names.isEmpty())
+            mainJson.put("names", names);
+
+        if (!osmCategories.isEmpty())
+            mainJson.put("categories", $(_("osm", osmCategories)));
+
+        value = tags.getString("admin_level");
+        if (value != null && isAdminBound)
+            try {
+                int adminLevel = Integer.parseInt(value);
+                // accept 7 (towns) and 8 (cities, villages, hamlets)
+                // accept 6: cities do not (often?) have boundaries
+                if (adminLevel < 6 || adminLevel > 8)
+                    return null;
+                mainJson.put("admin_level", adminLevel);
+            } catch (NumberFormatException ex) {
+                logger.warn("cannot parse adminlevel:" + value, ex);
+            }
+
+        String centerNode = mainJson.getString("admin_centre");
         if (centerNode != null) {
-            geoJson.put("center_node", centerNode);
-            geoJson.remove("admin_centre");
+            mainJson.put("center_node", centerNode);
+            mainJson.remove("admin_centre");
         }
 
         JsonElement val = tags.get("website");
         if (val != null)
-            geoJson.put("link", val.asString());
+            mainJson.put("link", val.asString());
 
         val = tags.get("wikipedia");
         if (val != null) {
@@ -202,9 +197,9 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
             int index = str.indexOf(":");
             if (index > 0) {
                 String language = str.substring(0, index);
-                String value = str.substring(index + 1).replaceAll("\\ ", "_");
-                String url = "https://" + language + ".wikipedia.org/wiki/" + GeocoderHelper.encodeUrl(value);
-                geoJson.put("wikipedia", url);
+                String tmpValue = str.substring(index + 1).replaceAll("\\ ", "_");
+                String url = "https://" + language + ".wikipedia.org/wiki/" + GeocoderHelper.encodeUrl(tmpValue);
+                mainJson.put("wikipedia", url);
             }
         }
 
@@ -217,7 +212,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         }
 
         if (address.size() > 0)
-            geoJson.put("address", address);
+            mainJson.put("address", address);
 
         val = tags.get("population");
         if (val == null)
@@ -226,7 +221,7 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         if (val != null) {
             try {
                 long longVal = Long.parseLong(val.asString());
-                geoJson.put("population", longVal);
+                mainJson.put("population", longVal);
             } catch (NumberFormatException ex) {
             }
         }
@@ -249,8 +244,8 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                     arr.add(str.trim());
             }
             if (!arr.isEmpty())
-                geoJson.put("is_in", arr);
+                mainJson.put("is_in", arr);
         }
-        return geoJson;
+        return mainJson;
     }
 }

@@ -9,6 +9,8 @@ import static com.github.jsonj.tools.JsonBuilder.$;
 import static com.github.jsonj.tools.JsonBuilder._;
 import static com.github.jsonj.tools.JsonBuilder.array;
 import com.google.inject.Inject;
+import com.graphhopper.geohash.KeyAlgo;
+import com.graphhopper.geohash.SpatialKeyAlgo;
 import com.vividsolutions.jts.geom.Point;
 import java.io.IOException;
 import java.io.InputStream;
@@ -187,13 +189,15 @@ public class JsonFeeder {
                     // The first array represents the outer boundary of the polygon (unsupported: the other arrays represent the interior shapes (holes))
                     List<Point> pointList = GeocoderHelper.polygonToPointList(arr.get(0).asArray());
                     middlePoint = GeocoderHelper.calcCentroid(pointList);
-                    simplify(pointList);
+                    JsonArray boundary = simplify(pointList);
 
-                    JsonArray polyBoundary = array();
-                    polyBoundary.add(GeocoderHelper.pointListToArray(pointList));
-                    result.put("has_bounds", true);
-                    result.put("bounds", $(_("type", "polygon"),
-                            _("coordinates", polyBoundary)));
+                    if (boundary.size() > 2) {
+                        JsonArray polyBoundary = array();
+                        polyBoundary.add(boundary);
+                        result.put("has_bounds", true);
+                        result.put("bounds", $(_("type", "polygon"),
+                                _("coordinates", polyBoundary)));
+                    }
 
                 } else if ("MultiPolygon".equalsIgnoreCase(geoType)) {
                     // multipolygon is an array of array of coordinates (array)
@@ -203,19 +207,19 @@ public class JsonFeeder {
                     for (JsonArray polyArr : arr.arrays()) {
                         JsonArray outerBoundary = polyArr.get(0).asArray();
                         List<Point> pointList = GeocoderHelper.polygonToPointList(outerBoundary);
-                        simplify(pointList);
+                        outerBoundary = simplify(pointList);
 
-                        outerBoundary = GeocoderHelper.pointListToArray(pointList);
-                        JsonArray polyBoundary = array();
-                        polyBoundary.add(outerBoundary);
-                        coordinates.add(polyBoundary);
+                        if (outerBoundary.size() > 2) {
+                            JsonArray polyBoundary = array();
+                            polyBoundary.add(outerBoundary);
+                            coordinates.add(polyBoundary);
+                        }
                     }
 
                     if (coordinates.isEmpty())
                         continue;
 
                     // TODO Collections.sort(arr);
-
                     // pick middle point from largest polygon == first polygon
                     middlePoint = GeocoderHelper.calcCentroid(GeocoderHelper.polygonToPointList(
                             coordinates.get(0).asArray().get(0).asArray()));
@@ -299,19 +303,25 @@ public class JsonFeeder {
         }
         return name;
     }
-    ConcaveHullBuilder concaveHull = new ConcaveHullBuilder();
 
-    public JsonObject simplify(List<Point> pointList) {
-        List<double[]> result = concaveHull.getConcaveHull(pointList, 0.0001);
-        JsonObject outerBoundary = new JsonObject();
-        // System.out.print("[");
-        for (double[] line : result) {            
-            // TODO create boundary from random lines!?!?
-            // use again WayManager stuff?
-            // but now based on coordinates :(
-            // -> change to indices in algo
+    KeyAlgo keyAlgo = new SpatialKeyAlgo(48);
+
+    /**
+     * A very simple simplify algorithm. Create the spatial key of a point and
+     * compare to the previous one. If identical -> skip. So, if the resolution
+     * is very low only a few points are added to the resulting array.
+     */
+    public JsonArray simplify(List<Point> pointList) {
+        JsonArray outerBoundary = new JsonArray();
+        long lastKey = -1;
+        for (Point p : pointList) {
+            long key = keyAlgo.encode(p.getY(), p.getX());
+            if (key == lastKey)
+                continue;
+            lastKey = key;
+            outerBoundary.add(array(p.getX(), p.getY()));
         }
-        // System.out.print("]");
+
         return outerBoundary;
     }
 
