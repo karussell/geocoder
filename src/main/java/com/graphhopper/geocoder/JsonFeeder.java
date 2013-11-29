@@ -43,7 +43,7 @@ public class JsonFeeder {
 
     public static void main(String[] args) {
         Configuration config = new Configuration().reload();
-        new JsonFeeder().setConfiguration(config).start();
+        new JsonFeeder(config).start();
     }
 
     public static Client createClient(String cluster, String url, int port) {
@@ -57,16 +57,13 @@ public class JsonFeeder {
     private String osmType = "osmobject";
     private String osmIndex = "osm";
     @Inject
-    private Configuration config;
+    private final Configuration config;
     private boolean minimalData;
     private KeyAlgo keyAlgo;
 
-    public JsonFeeder() {
-    }
-
-    public JsonFeeder setConfiguration(Configuration configuration) {
-        this.config = configuration;
-        return this;
+    public JsonFeeder(Configuration c) {
+        config = c;
+        keyAlgo = new SpatialKeyAlgo(config.getSpatialKeyResolution());
     }
 
     public void setClient(Client client) {
@@ -322,9 +319,6 @@ public class JsonFeeder {
         // skip simplify if small boundary
         if (orig.size() < config.getSmallBoundary())
             return orig;
-
-        if (keyAlgo == null)
-            keyAlgo = new SpatialKeyAlgo(config.getSpatialKeyResolution());
 
         JsonArray outerBoundary = new JsonArray();
         int max = pointList.size();
