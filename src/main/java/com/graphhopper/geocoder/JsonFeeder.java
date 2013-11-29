@@ -8,7 +8,6 @@ import com.github.jsonj.tools.JsonParser;
 import static com.github.jsonj.tools.JsonBuilder.$;
 import static com.github.jsonj.tools.JsonBuilder._;
 import static com.github.jsonj.tools.JsonBuilder.array;
-import com.google.inject.Inject;
 import com.graphhopper.geohash.KeyAlgo;
 import com.graphhopper.geohash.SpatialKeyAlgo;
 import com.vividsolutions.jts.geom.Point;
@@ -23,66 +22,35 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
+import org.elasticsearch.action.admin.indices.optimize.OptimizeRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.settings.ImmutableSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * @author Peter Karich
  */
-public class JsonFeeder {
+public class JsonFeeder extends BaseES {
 
     public static void main(String[] args) {
         Configuration config = new Configuration().reload();
         new JsonFeeder(config).start();
     }
 
-    public static Client createClient(String cluster, String url, int port) {
-        Settings s = ImmutableSettings.settingsBuilder().put("cluster.name", cluster).build();
-        TransportClient tmp = new TransportClient(s);
-        tmp.addTransportAddress(new InetSocketTransportAddress(url, port));
-        return tmp;
-    }
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    private Client client;
-    private String osmType = "osmobject";
-    private String osmIndex = "osm";
-    @Inject
-    private final Configuration config;
     private boolean minimalData;
-    private KeyAlgo keyAlgo;
+    private final KeyAlgo keyAlgo;
 
     public JsonFeeder(Configuration c) {
-        config = c;
+        super(c);
         keyAlgo = new SpatialKeyAlgo(config.getSpatialKeyResolution());
     }
 
-    public void setClient(Client client) {
-        if (client == null)
-            throw new IllegalArgumentException("client cannot be null");
-
-        this.client = client;
-    }
-
-    public void start() {
-        // "failed to get node info for..." -> wrong elasticsearch version for client vs. server
-
-        String cluster = config.getElasticSearchCluster();
-        String host = config.getElasticSearchHost();
-        int port = config.getElasticSearchPort();
-        setClient(createClient(cluster, host, port));
-        feed();
-    }
-
+    @Override
     public void feed() {
         initIndices();
 
@@ -110,6 +78,8 @@ public class JsonFeeder {
         processor.processNodes();
         processor.processWays();
         processor.processRelations();
+        if (config.doOptimize())
+            client.admin().indices().optimize(new OptimizeRequest(osmIndex).maxNumSegments(1)).actionGet();
     }
 
     public Collection<Integer> bulkUpdate(Collection<JsonObject> objects, String indexName, String indexType) {
@@ -150,18 +120,18 @@ public class JsonFeeder {
     // {"id":"osmnode/1411809098","title":"Bensons Rift",
     //      "geometry":{"type":"Point","coordinates":[-75.9839922,44.3561003]},
     //      "categories":{"osm":["natural:water"]}}
-    public JsonObject createDoc(JsonObject o) throws IOException {
+    public JsonObject createDoc(JsonObject mainJson) throws IOException {
         JsonObject result = new JsonObject();
         boolean foundLocation = false;
         boolean foundPopulation = false;
-        String name = o.getString("name");
+        String name = mainJson.getString("name");
         result.put("name", fixName(name));
 
-        JsonElement type = o.get("type");
+        JsonElement type = mainJson.get("type");
         if (type == null)
-            logger.warn("no type associated " + o);
-
-        for (Entry<String, JsonElement> e : o.entrySet()) {
+            logger.warn("no type associated " + mainJson);
+        boolean isBoundary = mainJson.containsKey("admin_level");
+        for (Entry<String, JsonElement> e : mainJson.entrySet()) {
             JsonElement el = e.getValue();
             String key = e.getKey();
             if (key.equalsIgnoreCase("id")) {
@@ -193,9 +163,10 @@ public class JsonFeeder {
                     JsonArray boundary = simplify(pointList, arr.get(0).asArray());
 
                     if (boundary.size() > 3) {
+                        if (isBoundary)
+                            result.put("is_boundary", true);
                         JsonArray polyBoundary = array();
                         polyBoundary.add(boundary);
-                        result.put("has_bounds", true);
                         result.put("bounds", $(_("type", "polygon"),
                                 _("coordinates", polyBoundary)));
                     }
@@ -227,7 +198,9 @@ public class JsonFeeder {
                     middlePoint = GeocoderHelper.calcCentroid(GeocoderHelper.polygonToPointList(
                             coordinates.get(0).asArray().get(0).asArray()));
 
-                    result.put("has_bounds", true);
+                    if (isBoundary)
+                        result.put("is_boundary", true);
+
                     result.put("bounds", $(_("type", "multipolygon"), _("coordinates", coordinates)));
 
                 } else {
@@ -289,7 +262,7 @@ public class JsonFeeder {
             result.put("population", 0L);
 
         if (!foundLocation)
-            throw new IllegalStateException("No location found:" + o.toString());
+            throw new IllegalStateException("No location found:" + mainJson.toString());
 
         return result;
     }

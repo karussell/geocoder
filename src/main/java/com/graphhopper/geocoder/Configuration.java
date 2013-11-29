@@ -57,6 +57,20 @@ public class Configuration {
         return Integer.parseInt(value);
     }
 
+    public long getKeepInMinutes() {
+        String value = get(appName + ".elasticsearch.keepinminutes");
+        if (value == null)
+            return 1000;
+        return Long.parseLong(value);
+    }
+
+    public boolean doOptimize() {
+        String value = get(appName + ".elasticsearch.optimize");
+        if (value == null)
+            return false;
+        return Boolean.parseBoolean(value);
+    }
+
     public int getSpatialKeyResolution() {
         String value = get(appName + ".spatialkey.resolution");
         if (value == null)
@@ -150,5 +164,4 @@ public class Configuration {
             logger.error("Problem while reading configuration", ex);
         }
     }
-
 }

@@ -1,54 +1,26 @@
+visualize simplified polygones
+
+nice: https://github.com/brunob/leaflet.fullscreen
 nice title: Instant Routing with GraphHopper. Innovation beyond Google Maps?
 
-optimize index to one segment after feeding!
-
-4 steps: osm preparation (import+mergesort), feeding elasticsearch, boundary fix, no-boundary fix   
+big problem: there should be NO difference for suggestor and explicit search!
 gorbitz is_in Dresden,Dresden,Dresden,Sachsen?
-
-# do suggestions!
+more flexible search!
  phonetic analyzer => umlaute and ph/f and more
- fuzzy -> bei verschreibern
-
- http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html#_geo_distance_sorting
+ fuzzy -> bei verschreibern -> nicht notwendig bei completion
  http://www.elasticsearch.org/guide/reference/api/search/completion-suggest/
-    IndicesStatsRequest
-    use CompletionSuggest with FuzzySuggester
-    highlighter on possible with phrase suggester
-    use payload to specify the gps + boundary
-    "type" :     "completion"
-    "weight":      15
+    use CompletionSuggest with FuzzySuggester, use payload to specify the gps + boundary and 'weight' for population+area sort
 
-feed Germany @ hserver => do "* 2" to get final time with updating (hmmh, what about 3rd stage where we traverse the graph to update streets etc?)
-    ask @osm2geojson if increasing RAM usage is normal although disc based
-
-features:
-    * nice I18N => e.g. names.hsb (hornjo sorbian)
-    * fast fuzzy search! bauzen~0.8 or haldendorf~0.8
-    * autocompletion
-    * no nominatim, no postgres, only Java
-    * good import time?
-
-com.github.jsonj.tools.JsonBuilder._; -> unsupported after JDK8
-"query": "type:village OR type:city OR type:town OR type:hamlet OR type:locality"
-    => 3700
-
-* a) get all entries with bounds. has_bounds:true => get bounds, center_node and eventually admin_level
-  b) get is_in stuff from center_node => "query": "_id:\"osmnode/29927546\"" => name: Pirna with is_in tags (=> set bounds) or 30361883 => Bautzen
-  c) get all in bounds except bounds+village+town+city+...  set is_in array
-     somehow merge boundary+city/town (and remove boundary)
-* a) get all villages etc without bounds
-  b) determine radius from population, type
-  c) query with radius and radius*1.1 (eventually until no longer increasing? max==5)
-     use facets as additional indicator if radius too big (e.g. facet=assigned_address => if increasing number => radius is already too big)
-  d) assign village+is_in to the returned streets+pois but exclude stuff also assigned
-* find duplicate streets in Berlin => check zipcode or other different info
+find duplicate streets in Berlin => check zipcode or other different info
     torstraße, bergstraße, mind. 3 Wrangelstraßen
-* optimize storage
-   POIs => instead separate entity add to street ala street.pois{name_0=sxc,number_0=1a,latlon_0=53,49.0, ..}
-fine tuning
+optimize storage: 
+  POIs => instead separate entity add to street ala street.pois{name_0=sxc,number_0=1a,latlon_0=53,49.0, ..}  
+fine tuning  
   * instead of population => calculate area and sort by area? => more complete data!
     also include type for sorting! town, city, village, hamlet, locality
   * boost streets (e.g. not bus_stop)
+  * streetnumbers => 1-3 => 1,2,3 => komma, minus oder semicolon als trennzeichen bei hausnummern http://www.openstreetmap.org/user/okilimu/diary/20423
+  * synonyms like nyc
 
 # tune spatial key resolution for boundary simplification! why is time nearly identical??
     key=32: 1m27, simplified to 25%
@@ -65,11 +37,8 @@ can we fix this?
     jillesvangurp.osm2geojson.OsmPostProcessor$WayManager - second pointer was already assigned. node:1627882298, relId:2198517,Connewitz
     check if landkreis is skipped http://www.openstreetmap.org/browse/relation/62378 vs. stadt http://www.openstreetmap.org/browse/relation/62640   
 
-# new params: fuzzy=true/false (e.g. autocomplete should filter more aggressive)
-              include not only 'nearby' but also 'locale'!
-
-* check if simple city queries work
-  http://klauszanders.de/blog/2012/10/15/how-to-start-your-own-geocoder-in-48-hours/
+# new params: fuzzy=true/false (e.g. autocomplete should filter more aggressive -> no fuzzy?)
+              include not only 'nearby' (for geofilter) but also 'locale' for I18N search -> names.lang!
 
 # create integration test for bavaria
   one entity:    
