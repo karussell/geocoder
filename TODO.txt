@@ -1,4 +1,7 @@
-fix reference to city for streets with admin boundary help and with approximative search
+# fix reference to city for streets with admin boundary help 
+
+# ... and with approximative search
+
 integration + more unit tests - see below!!
 if ambiguity is detected for a name => display it beneath the input
   find duplicate streets in Berlin => check zipcode or other different info

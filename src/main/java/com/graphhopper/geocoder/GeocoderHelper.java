@@ -7,9 +7,7 @@ import static com.github.jsonj.tools.JsonBuilder.array;
 import com.graphhopper.util.DistanceCalc;
 import com.graphhopper.util.DistancePlaneProjection;
 import com.graphhopper.util.PointList;
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.Point;
+import com.graphhopper.util.shapes.GHPoint;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,7 +25,7 @@ import java.util.Map;
  */
 public class GeocoderHelper {
 
-    private static DistanceCalc distCalc = new DistancePlaneProjection();
+    private static final DistanceCalc distCalc = new DistancePlaneProjection();
 
     /**
      * remove more than two spaces or newlines
@@ -123,14 +121,14 @@ public class GeocoderHelper {
      * Calculates the mean value out of all lat,lon pairs. Use calcCentroid for
      * a more precise calculation.
      */
-    static double[] calcSimpleMean(List<Point> list) {
+    static double[] calcSimpleMean(List<GHPoint> list) {
         if (list.isEmpty())
             return null;
         double lat = 0, lon = 0;
         int max = list.size();
-        for (Point p : list) {
-            lat += p.getY();
-            lon += p.getX();
+        for (GHPoint p : list) {
+            lat += p.lat;
+            lon += p.lon;
         }
         return new double[]{lat / max, lon / max};
     }
@@ -183,7 +181,7 @@ public class GeocoderHelper {
     /**
      * Polygon: JsonArray or JsonArrays containing lon,lat arrays
      */
-    static double[] calcCentroid(List<Point> list) {
+    static double[] calcCentroid(List<GHPoint> list) {
         if (list.isEmpty())
             return null;
 
@@ -198,12 +196,12 @@ public class GeocoderHelper {
 
         int max = list.size() - 1;
         for (int i = 0; i < max; i++) {
-            Point p = list.get(i);
-            Point pNext = list.get(i + 1);
-            double tmpLat = p.getY();
-            double tmpLat_p1 = pNext.getY();
-            double tmpLon = p.getX();
-            double tmpLon_p1 = pNext.getX();
+            GHPoint p = list.get(i);
+            GHPoint pNext = list.get(i + 1);
+            double tmpLat = p.lat;
+            double tmpLat_p1 = pNext.lat;
+            double tmpLon = p.lon;
+            double tmpLon_p1 = pNext.lon;
             double TMP = tmpLon * tmpLat_p1 - tmpLon_p1 * tmpLat;
             polyArea += TMP;
             lat += (tmpLat + tmpLat_p1) * TMP;
@@ -216,11 +214,11 @@ public class GeocoderHelper {
         return new double[]{lat, lon};
     }
 
-    public static JsonArray pointListToArray(List<Point> pointList) {
+    public static JsonArray pointListToArray(List<GHPoint> pointList) {
         JsonArray tmpRes = array();
-        for (Point p : pointList) {
+        for (GHPoint p : pointList) {
             // lon,lat
-            tmpRes.add(array(p.getX(), p.getY()));
+            tmpRes.add(array(p.lon, p.lat));
         }
         return tmpRes;
     }
@@ -232,22 +230,15 @@ public class GeocoderHelper {
             tmpRes.add(array(polyList.getLongitude(i), polyList.getLatitude(i)));
         }
         return tmpRes;
-    }
-    private static GeometryFactory gf = new GeometryFactory();
+    }    
 
-    public static List<Point> polygonToPointList(JsonArray arr) {
+    public static List<GHPoint> polygonToPointList(JsonArray arr) {
         if (arr.isEmpty())
             return Collections.EMPTY_LIST;
 
-        List<Point> list = new ArrayList<Point>(arr.size());
-        for (JsonArray innerstArr : arr.arrays()) {
-
-            Coordinate c = new Coordinate();
-            // lon
-            c.x = innerstArr.get(0).asDouble();
-            // lat
-            c.y = innerstArr.get(1).asDouble();
-            list.add(gf.createPoint(c));
+        List<GHPoint> list = new ArrayList<GHPoint>(arr.size());
+        for (JsonArray innerstArr : arr.arrays()) {            
+            list.add(new GHPoint(innerstArr.get(1).asDouble(), innerstArr.get(0).asDouble()));
         }
         return list;
     }

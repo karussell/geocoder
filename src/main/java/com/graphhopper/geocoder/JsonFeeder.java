@@ -10,7 +10,7 @@ import static com.github.jsonj.tools.JsonBuilder._;
 import static com.github.jsonj.tools.JsonBuilder.array;
 import com.graphhopper.geohash.KeyAlgo;
 import com.graphhopper.geohash.SpatialKeyAlgo;
-import com.vividsolutions.jts.geom.Point;
+import com.graphhopper.util.shapes.GHPoint;
 import gnu.trove.list.array.TLongArrayList;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -153,7 +153,7 @@ public class JsonFeeder extends BaseES {
                 } else if ("Polygon".equalsIgnoreCase(geoType)) {
                     // A polygon is defined by a list of a list of points. The first and last points in each list must be the same (the polygon must be closed).
                     // The first array represents the outer boundary of the polygon (unsupported: the other arrays represent the interior shapes (holes))
-                    List<Point> pointList = GeocoderHelper.polygonToPointList(arr.get(0).asArray());
+                    List<GHPoint> pointList = GeocoderHelper.polygonToPointList(arr.get(0).asArray());
                     if (pointList.size() < 4)
                         continue;
 
@@ -176,7 +176,7 @@ public class JsonFeeder extends BaseES {
                     JsonArray coordinates = array();
                     for (JsonArray polyArr : arr.arrays()) {
                         JsonArray outerBoundary = polyArr.get(0).asArray();
-                        List<Point> pointList = GeocoderHelper.polygonToPointList(outerBoundary);
+                        List<GHPoint> pointList = GeocoderHelper.polygonToPointList(outerBoundary);
                         if (pointList.size() < 4)
                             continue;
 
@@ -308,7 +308,7 @@ public class JsonFeeder extends BaseES {
      * compare to the previous one. If identical -> skip. So, if the resolution
      * is very low only a few points are added to the rboundaryesulting array.
      */
-    public JsonArray simplify(List<Point> pointList, JsonArray orig) {
+    public JsonArray simplify(List<GHPoint> pointList, JsonArray orig) {
         // skip simplify if small boundary
         if (orig.size() < config.getSmallBoundary())
             return orig;
@@ -319,8 +319,8 @@ public class JsonFeeder extends BaseES {
         int LAST_N = 3;
         LOOP:
         for (int i = 0; i < max; i++) {
-            Point p = pointList.get(i);
-            long key = keyAlgo.encode(p.getY(), p.getX());
+            GHPoint p = pointList.get(i);
+            long key = keyAlgo.encode(p.lat, p.lon);
             keys.add(key);
 
             // Do not skip ends of list, otherwise we get: IllegalArgumentException[Points of LinearRing do not form a closed linestring];
@@ -331,7 +331,7 @@ public class JsonFeeder extends BaseES {
                         continue LOOP;
                 }
             }
-            outerBoundary.add(array(p.getX(), p.getY()));
+            outerBoundary.add(array(p.lat, p.lon));
         }        
         if (outerBoundary.size() < 4) {
             logger.warn("reduced multi too much: " + outerBoundary.size() + " vs. original " + orig.size());

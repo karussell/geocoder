@@ -15,6 +15,9 @@ import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.FilterBuilder;
 import org.elasticsearch.index.query.FilterBuilders;
+import org.elasticsearch.index.query.GeoPolygonFilterBuilder;
+import org.elasticsearch.index.query.OrFilterBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 
 /**
@@ -59,23 +62,71 @@ public class RelationShipFixer extends BaseES {
         // TODO it would be good if we could sort by area size to update small areas first
         // and bigger areas will ignore already assigned streets
 
-        // TODO report progress
         SearchResponse rsp = createScan(FilterBuilders.termFilter("is_boundary", true)).get();
         scroll(rsp, new Execute() {
 
+            long total;
+            long current;
+            long lastTime;
+            float timePerCall = -1;
+
             @Override public void init(SearchResponse nextScroll) {
+                total = nextScroll.getHits().getTotalHits();
+                if (timePerCall >= 0) {
+                    timePerCall = (float) (System.nanoTime() - lastTime) / 1000000;
+                }
+                lastTime = System.nanoTime();
             }
 
-            @Override public void handle(SearchHit sh) {
-                String name = (String) sh.getSource().get("name");
-                String centerNode = (String) sh.getSource().get("center_node");
-                Integer adminLevel = (Integer) sh.getSource().get("admin_level");
-                Map bounds = (Map) sh.getSource().get("bounds");
-                List coords = (List) bounds.get("coordinates");                
-                System.out.println(name + ", " + centerNode + ", " + adminLevel + ", " + coords);
+            @Override public void handle(SearchHit scanSearchHit) {
+                current++;
+                String name = (String) scanSearchHit.getSource().get("name");
+                String centerNode = (String) scanSearchHit.getSource().get("center_node");
+                Integer adminLevel = (Integer) scanSearchHit.getSource().get("admin_level");
+                Map bounds = (Map) scanSearchHit.getSource().get("bounds");
 
-                // TODO FilterBuilders.geoPolygonFilter("areaFilter").addPoint(, );
-                // FilterBuilders.geoBoundingBoxFilter(name)
+                // System.out.println(name + ", " + centerNode + ", " + adminLevel + ", " + coords);
+                if (current % 10 == 0)
+                    logger.info((float) current * 100 / total + "% -> time/call:" + timePerCall);
+
+                // TODO fetch not only 10!
+                SearchResponse rsp = client.prepareSearch(osmIndex).
+                        setFilter(getFilterFromCoordinates(bounds)).
+                        setQuery(QueryBuilders.matchAllQuery()).
+                        get();
+                for (SearchHit boundarySH : rsp.getHits().getHits()) {
+                    logger.info(boundarySH.toString());
+                }
+            }
+
+            private FilterBuilder getFilterFromCoordinates(Map bounds) {
+                List coords = (List) bounds.get("coordinates");
+                String type = (String) bounds.get("type");
+
+                if (type.equalsIgnoreCase("polygon")) {
+                    return getGeoFilter(coords);
+                } else if (type.equalsIgnoreCase("multipolygon")) {
+                    OrFilterBuilder filter = FilterBuilders.orFilter();
+                    for (Object o : coords) {
+                        filter.add(getGeoFilter((List) o));
+                    }
+                    return filter;
+                } else
+                    throw new IllegalStateException("unknown type " + type);
+            }
+
+            GeoPolygonFilterBuilder getGeoFilter(List polygon) {
+                GeoPolygonFilterBuilder filter = FilterBuilders.geoPolygonFilter("areaFilter");
+                if(polygon.size() != 1)
+                    throw new IllegalStateException("polygon size does not match " + polygon.size());
+                for (Object o : (List) polygon.get(0)) {
+                    List coord = (List) o;
+                    if (coord.size() != 2)
+                        throw new IllegalStateException("WHAT? " + coord);
+
+                    filter.addPoint((Double) coord.get(1), (Double) coord.get(0));
+                }
+                return filter;
             }
         });
         client.admin().indices().flush(new FlushRequest(osmIndex)).actionGet();
