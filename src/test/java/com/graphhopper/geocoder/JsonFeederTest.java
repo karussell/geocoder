@@ -187,6 +187,34 @@ public class JsonFeederTest extends AbstractNodesTests {
         assertEquals(1, rsp.getHits().getTotalHits());
     }
 
+    @Test
+    public void testDoRequest() throws IOException {
+        List<JsonObject> list = new ArrayList<JsonObject>();
+        JsonArray coordinates = array(-11, 11);
+        JsonObject geo = $(_("type", "Point"), _("coordinates", coordinates));
+
+        list.add($(_("id", "osmway/123"), _("geometry", geo), _("name", "dresden-gorbitz")));
+        list.add($(_("id", "osmway/124"), _("geometry", geo), _("name", "dresden")));
+        list.add($(_("id", "osmway/125"), _("geometry", geo), _("name", "Dresden, Sankt-Benno-Gymnasium")));
+
+        Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
+        assertEquals(res.toString(), 0, res.size());
+        refresh(osmIndex);
+
+        SearchResponse rsp = queryHandler.doRequest("dresden", 10);
+        assertEquals(3, rsp.getHits().getTotalHits());
+
+        rsp = queryHandler.doRequest("gorbitz", 10);
+        assertEquals(1, rsp.getHits().getTotalHits());
+
+        rsp = queryHandler.doRequest("dresden gorbitz", 10);
+        assertEquals(1, rsp.getHits().getTotalHits());
+        
+        // fuzzy
+        rsp = queryHandler.doRequest("dresden gorbiz", 10);
+        assertEquals(1, rsp.getHits().getTotalHits());
+    }
+
     protected void refresh(String indexName) {
         client.admin().indices().refresh(new RefreshRequest(indexName)).actionGet();
     }

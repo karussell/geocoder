@@ -1,6 +1,7 @@
 package com.graphhopper.geocoder;
 
 import com.google.inject.Inject;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -21,8 +22,10 @@ public class QueryHandler extends BaseES {
     public SearchResponse doRequest(String query, int size) {
         if (query == null || query.isEmpty())
             return null;
-        QueryBuilder builder = QueryBuilders.fuzzyQuery("name", query).maxExpansions(10);
-        return _doSearch(builder, size);
+        // QueryBuilder builder = QueryBuilders.fuzzyQuery("name", query).maxExpansions(10);
+        QueryBuilder builder = QueryBuilders.matchQuery("name", query).minimumShouldMatch("3<90%").fuzziness(0.8);
+        SearchRequestBuilder srb = _doSearch(builder, size);
+        return srb.get();
     }
 
     public SearchResponse suggest(String query, int size) {
@@ -35,23 +38,23 @@ public class QueryHandler extends BaseES {
         String end = query;
         if (index > 0) {
             front = query.substring(0, index);
-            end = query.substring(index).trim();
+            end = query.substring(index + 1);
         }
         QueryBuilder builder = QueryBuilders.prefixQuery("name", end);
         if (!front.isEmpty()) {
             builder = QueryBuilders.boolQuery().
                     must(builder).
-                    must(QueryBuilders.fuzzyQuery("name", front).maxExpansions(10));
+                    must(QueryBuilders.matchQuery("name", front).minimumShouldMatch("3<90%"));
         }
-        return _doSearch(builder, size);
+        SearchRequestBuilder srb = _doSearch(builder, size);
+        return srb.get();
     }
 
-    private SearchResponse _doSearch(QueryBuilder builder, int size) {
+    private SearchRequestBuilder _doSearch(QueryBuilder query, int size) {
         return client.prepareSearch(osmIndex).setTypes(osmType).
                 setSize(size).
-                setQuery(builder).
-                addSort("population", SortOrder.DESC).
-                execute().actionGet();
+                setQuery(query).
+                addSort("population", SortOrder.DESC);
     }
 
     public SearchResponse rawRequest(String query) {

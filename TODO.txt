@@ -6,6 +6,7 @@ dresden -> why matches diedenhain?
 
 match_phrase_prefix has problems e.g. with 'dr' => 'dresden' is not returned
     or "dresden go" => 'dresden gorbitz' is not returned
+ngram stuff has problem for dresden b => dresdenerstrasse still matches!?
 
 use calculated area from (multi)polygon!
     include in 'sort' for suggester (not only population)

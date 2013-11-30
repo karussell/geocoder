@@ -41,9 +41,10 @@ public class GeocoderResource {
         Map<String, Object> json = new HashMap<String, Object>();
         SearchResponse rsp;
         if (suggest)
-            rsp = queryHandler.doRequest(address, size);
+            rsp = queryHandler.suggest(address, size);            
         else
-            rsp = queryHandler.suggest(address, size);
+            rsp = queryHandler.doRequest(address, size);
+            
         long total = 0;
         List<Map<String, Object>> results = new ArrayList<Map<String, Object>>();
         if (rsp != null) {
