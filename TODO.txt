@@ -1,39 +1,28 @@
-switch vehicle while traversing the graph
+fix reference to city for streets with admin boundary help and with approximative search
+integration + more unit tests - see below!!
+if ambiguity is detected for a name => display it beneath the input
+  find duplicate streets in Berlin => check zipcode or other different info
+    torstraße, bergstraße, mind. 3 Wrangelstraßen
+  innovate with ambiguity detection -> click on '?' to get selection
+replace nominatim geocoding too! not only suggestions
+'more link' in suggestions e.g. already necessary for 'bremen'
+phonetic analyzer => umlaute and ph/f and more
+world wide!
 
-gorbit should give gorbitz
-    gorbit* fixes this
-dresden -> why matches diedenhain? 
+release!
+########
+    see graphhopper TODO.txt for all possible announcements ;)
 
-match_phrase_prefix has problems e.g. with 'dr' => 'dresden' is not returned
-    or "dresden go" => 'dresden gorbitz' is not returned
-ngram stuff has problem for dresden b => dresdenerstrasse still matches!?
-
-use calculated area from (multi)polygon!
-    include in 'sort' for suggester (not only population)
-
-visualize simplified polygons
-    e.g. http://www.openstreetmap.org/browse/way/81537932 -> self intersect problem
-    http://www.openstreetmap.org/browse/relation/2389086
+improve simplify - e.g. skip coordinate only if area increases
+    decrease geocoder.smallboundary to include calling simplify again!
 
 nice: https://github.com/brunob/leaflet.fullscreen
 nice title: Instant Routing with GraphHopper. Innovation beyond Google Maps?
-
-big problem: there should be NO difference for suggestor and explicit search!
-    replace nominatim geocoding too! not only suggestions
-    if ambiguity is detected for a name => display it beneath the input
 
 gorbitz is_in Dresden,Dresden,Dresden,Sachsen why 3 times dresden ?
     Gorbitz, Cotta, Dresden, Sachsen, Deutschland, Europäische Union
     include admin_level == 9 can be districts of a city like dresden cotta    
 
-more flexible search!
- phonetic analyzer => umlaute and ph/f and more
- fuzzy -> bei verschreibern -> nicht notwendig bei completion
- http://www.elasticsearch.org/guide/reference/api/search/completion-suggest/
-    use CompletionSuggest with FuzzySuggester, use payload to specify the gps + boundary and 'weight' for population+area sort
-
-find duplicate streets in Berlin => check zipcode or other different info
-    torstraße, bergstraße, mind. 3 Wrangelstraßen
 optimize storage: 
   POIs => instead separate entity add to street ala street.pois{name_0=sxc,number_0=1a,latlon_0=53,49.0, ..}  
 fine tuning  
@@ -43,6 +32,7 @@ fine tuning
   * streetnumbers => 1-3 => 1,2,3 => komma, minus oder semicolon als trennzeichen bei hausnummern http://www.openstreetmap.org/user/okilimu/diary/20423
   * synonyms like nyc
   * if selecting a thing from suggester which has bounds => display them
+  * use calculated area from (multi)polygon! include in 'sort' for suggester (not only population)
 
 # tune spatial key resolution for boundary simplification! why is time nearly identical??
     key=32: 1m27, simplified to 25%
@@ -151,3 +141,6 @@ Infos
    approach 3: paint border on a grid like format and choose the outer 'pixels' to form the resulting border!
    approach 4: use e.g. points forming a circle and every line then gets a fixed angle-area => now make the circle as small as possible where the outer border should not overlapp the real boundary
    http://www.scribd.com/doc/3124116/A-Simple-FastEffective-Polygon-Reduction-Algorithm 
+ * match_phrase_prefix has problems e.g. with 'dr' => 'dresden' is not returned
+    or "dresden go" => 'dresden gorbitz' is not returned
+ * ngram stuff has problem for dresden b => dresdenerstrasse still matches!?

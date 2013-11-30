@@ -255,7 +255,6 @@ public class JsonFeeder extends BaseES {
                 logger.warn("Not explicitely supported " + el.type() + ": " + key + " -> " + el.toString());
             }
         }
-
         if (!foundPopulation) {
             long population = 0L;
 
@@ -333,7 +332,7 @@ public class JsonFeeder extends BaseES {
                 }
             }
             outerBoundary.add(array(p.getX(), p.getY()));
-        }
+        }        
         if (outerBoundary.size() < 4) {
             logger.warn("reduced multi too much: " + outerBoundary.size() + " vs. original " + orig.size());
             return orig;
