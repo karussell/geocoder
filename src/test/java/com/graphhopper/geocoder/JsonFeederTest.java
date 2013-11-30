@@ -41,10 +41,10 @@ public class JsonFeederTest extends AbstractNodesTests {
 
     @Before
     public void setUp() {
-        feeder = new JsonFeeder(new Configuration());
-        feeder.setClient(client);
+        feeder = new JsonFeeder(new Configuration(), client);
         feeder.initIndices();
-        queryHandler = new QueryHandler().setClient(client);
+
+        queryHandler = new QueryHandler(new Configuration(), client);
     }
 
     @After
@@ -64,7 +64,7 @@ public class JsonFeederTest extends AbstractNodesTests {
         refresh(osmIndex);
         assertEquals(client.prepareCount(osmIndex).execute().actionGet().getCount(), 1);
 
-        SearchResponse rsp = queryHandler.doRequest("today");
+        SearchResponse rsp = queryHandler.doRequest("today", 10);
         assertEquals(1, rsp.getHits().getTotalHits());
     }
 
@@ -88,7 +88,7 @@ public class JsonFeederTest extends AbstractNodesTests {
         refresh(osmIndex);
         assertEquals(client.prepareCount(osmIndex).execute().actionGet().getCount(), 1);
 
-        SearchResponse rsp = queryHandler.doRequest("today");
+        SearchResponse rsp = queryHandler.doRequest("today", 10);
         assertEquals(1, rsp.getHits().getTotalHits());
 
         // TODO
@@ -123,7 +123,7 @@ public class JsonFeederTest extends AbstractNodesTests {
         rsp = queryHandler.rawRequest("admin_level:6");
         assertEquals(0, rsp.getHits().getTotalHits());
     }
-    
+
     @Test
     public void testFeedMultiPolygon() {
         JsonObject obj = MyOsmPostProcessorTest.createMultiPolygon();
@@ -154,10 +154,37 @@ public class JsonFeederTest extends AbstractNodesTests {
         JsonObject obj = new JsonParser().parse(GeocoderHelper.toString(getClass().getResourceAsStream("krumbach.json"))).asObject();
         List<JsonObject> list = new ArrayList<JsonObject>();
         list.add(obj);
-        
+
         Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
         assertEquals("bulk update should not produce errors", 0, res.size());
         refresh(osmIndex);
+    }
+
+    @Test
+    public void testSuggestions() throws IOException {
+        List<JsonObject> list = new ArrayList<JsonObject>();
+        JsonArray coordinates = array(-11, 11);
+        JsonObject geo = $(_("type", "Point"), _("coordinates", coordinates));
+
+        list.add($(_("id", "osmway/123"), _("geometry", geo), _("name", "dresden gorbitz birkenstrasse")));
+        list.add($(_("id", "osmway/124"), _("geometry", geo), _("name", "bautzen dresdenerstrasse")));
+
+        Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
+        assertEquals(res.toString(), 0, res.size());
+        refresh(osmIndex);
+
+        SearchResponse rsp = queryHandler.suggest("dre", 10);
+        assertEquals(2, rsp.getHits().getTotalHits());
+
+        rsp = queryHandler.suggest("bau", 10);
+        assertEquals(1, rsp.getHits().getTotalHits());
+
+        rsp = queryHandler.suggest("dresden ", 10);
+        assertEquals(1, rsp.getHits().getTotalHits());
+        rsp = queryHandler.suggest("dresden g", 10);
+        assertEquals(1, rsp.getHits().getTotalHits());
+        rsp = queryHandler.suggest("dresden b", 10);
+        assertEquals(1, rsp.getHits().getTotalHits());
     }
 
     protected void refresh(String indexName) {

@@ -10,10 +10,8 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import java.util.EnumSet;
 import javax.servlet.DispatcherType;
 import org.eclipse.jetty.server.nio.SelectChannelConnector;
-import org.eclipse.jetty.server.ssl.SslSelectChannelConnector;
 import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.slf4j.LoggerFactory;
 
 public class HttpServerMain {
@@ -39,7 +37,7 @@ public class HttpServerMain {
         handler.addServlet(new ServletHolder(new InvalidRequestServlet()), "/*");
 
         FilterHolder guiceFilter = new FilterHolder(injector.getInstance(GuiceFilter.class));
-        handler.addFilter(guiceFilter, "/*", EnumSet.allOf(DispatcherType.class));
+        handler.addFilter(guiceFilter, "/*", EnumSet.allOf(DispatcherType.class));                
 
         // SPDY works over TLS
         // create keystore via
@@ -49,7 +47,6 @@ public class HttpServerMain {
 //        SslContextFactory sslFactory = new SslContextFactory();
 //        sslFactory.setKeyStorePath("src/main/resources/spdy.keystore");
 //        sslFactory.setKeyStorePassword("whatacomplexthingtodo");
-
         int httpPort = 8999, sslPort = 8442, spdyPort = 9442;
         SelectChannelConnector connector0 = new SelectChannelConnector();
         connector0.setPort(httpPort);
@@ -58,13 +55,12 @@ public class HttpServerMain {
 //        SslSelectChannelConnector connector1 = new SslSelectChannelConnector(sslFactory);
 //        connector1.setPort(sslPort);
 //        server.addConnector(connector1);
-
 //        HTTPSPDYServerConnector connector2 = new HTTPSPDYServerConnector(sslFactory);
 //        connector2.setPort(spdyPort);
 //        server.addConnector(connector2);
-
         server.setHandler(handler);
         server.start();
+        
         LoggerFactory.getLogger(HttpServerMain.class).info("Started server at HTTP " + httpPort
                 + ", HTTPS " + sslPort + " and SPDY " + spdyPort);
     }

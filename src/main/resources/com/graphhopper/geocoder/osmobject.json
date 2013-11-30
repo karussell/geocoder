@@ -4,6 +4,15 @@
             "enabled" : false
         },
         "properties": {
+            "name_old" : { 
+               "type" : "string",
+               "search_analyzer" : "geocoder_search",
+               "index_analyzer" : "geocoder_index"
+            },
+            "name" : { 
+               "type" : "string",
+                "index" : "analyzed"
+            },
             "title" : {
                 "type" : "string",  
                 "index" : "analyzed"

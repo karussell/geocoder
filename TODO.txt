@@ -1,10 +1,30 @@
-visualize simplified polygones
+switch vehicle while traversing the graph
+
+gorbit should give gorbitz
+    gorbit* fixes this
+dresden -> why matches diedenhain? 
+
+match_phrase_prefix has problems e.g. with 'dr' => 'dresden' is not returned
+    or "dresden go" => 'dresden gorbitz' is not returned
+
+use calculated area from (multi)polygon!
+    include in 'sort' for suggester (not only population)
+
+visualize simplified polygons
+    e.g. http://www.openstreetmap.org/browse/way/81537932 -> self intersect problem
+    http://www.openstreetmap.org/browse/relation/2389086
 
 nice: https://github.com/brunob/leaflet.fullscreen
 nice title: Instant Routing with GraphHopper. Innovation beyond Google Maps?
 
 big problem: there should be NO difference for suggestor and explicit search!
-gorbitz is_in Dresden,Dresden,Dresden,Sachsen?
+    replace nominatim geocoding too! not only suggestions
+    if ambiguity is detected for a name => display it beneath the input
+
+gorbitz is_in Dresden,Dresden,Dresden,Sachsen why 3 times dresden ?
+    Gorbitz, Cotta, Dresden, Sachsen, Deutschland, Europäische Union
+    include admin_level == 9 can be districts of a city like dresden cotta    
+
 more flexible search!
  phonetic analyzer => umlaute and ph/f and more
  fuzzy -> bei verschreibern -> nicht notwendig bei completion
@@ -21,6 +41,7 @@ fine tuning
   * boost streets (e.g. not bus_stop)
   * streetnumbers => 1-3 => 1,2,3 => komma, minus oder semicolon als trennzeichen bei hausnummern http://www.openstreetmap.org/user/okilimu/diary/20423
   * synonyms like nyc
+  * if selecting a thing from suggester which has bounds => display them
 
 # tune spatial key resolution for boundary simplification! why is time nearly identical??
     key=32: 1m27, simplified to 25%

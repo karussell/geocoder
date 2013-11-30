@@ -13,7 +13,6 @@ import com.graphhopper.geohash.SpatialKeyAlgo;
 import com.vividsolutions.jts.geom.Point;
 import gnu.trove.list.array.TLongArrayList;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,9 +26,8 @@ import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * @author Peter Karich
@@ -38,20 +36,18 @@ public class JsonFeeder extends BaseES {
 
     public static void main(String[] args) {
         Configuration config = new Configuration().reload();
-        new JsonFeeder(config).start();
+        new JsonFeeder(config, BaseES.createClient(config)).start();
     }
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
     private boolean minimalData;
     private final KeyAlgo keyAlgo;
 
-    public JsonFeeder(Configuration c) {
-        super(c);
+    public JsonFeeder(Configuration config, Client client) {
+        super(config, client);
         keyAlgo = new SpatialKeyAlgo(config.getSpatialKeyResolution());
     }
 
-    @Override
-    public void feed() {
+    public void start() {        
         initIndices();
 
         OsmPostProcessor processor = new MyOsmPostProcessor(new JsonParser()) {
@@ -78,8 +74,10 @@ public class JsonFeeder extends BaseES {
         processor.processNodes();
         processor.processWays();
         processor.processRelations();
-        if (config.doOptimize())
+        if (config.doOptimize()) {
+            logger.info("Optimizing ...");
             client.admin().indices().optimize(new OptimizeRequest(osmIndex).maxNumSegments(1)).actionGet();
+        }
     }
 
     public Collection<Integer> bulkUpdate(Collection<JsonObject> objects, String indexName, String indexType) {
@@ -127,7 +125,7 @@ public class JsonFeeder extends BaseES {
         String name = mainJson.getString("name");
         result.put("name", fixName(name));
 
-        JsonElement type = mainJson.get("type");
+        String type = mainJson.getString("type");
         if (type == null)
             logger.warn("no type associated " + mainJson);
         boolean isBoundary = mainJson.containsKey("admin_level");
@@ -258,11 +256,34 @@ public class JsonFeeder extends BaseES {
             }
         }
 
-        if (!foundPopulation)
-            result.put("population", 0L);
+        if (!foundPopulation) {
+            long population = 0L;
+
+            // https://wiki.openstreetmap.org/wiki/Key:place
+            if ("city".equals(type))
+                population = 100000L;
+            else if ("town".equals(type))
+                population = 10000L;
+            // parts of cities == city districts
+            else if ("borough".equals(type))
+                population = 1050L;
+            // TODO can be a suburb of a village or a city etc
+//            else if ("suburb".equals(type))
+//                population = 1040L;
+            else if ("village".equals(type))
+                population = 1000L;
+            else if ("hamlet".equals(type))
+                population = 50L;
+            else if ("locality".equals(type))
+                population = 1L;
+
+            if (population > 0)
+                result.put("population_estimated", true);
+            result.put("population", population);
+        }
 
         if (!foundLocation)
-            throw new IllegalStateException("No location found:" + mainJson.toString());
+            throw new IllegalStateException("No location found in document:" + mainJson.toString());
 
         return result;
     }
@@ -332,9 +353,12 @@ public class JsonFeeder extends BaseES {
     private void createIndexAndPutMapping(String indexName, String type) {
         boolean log = true;
         try {
-            InputStream is = getClass().getResourceAsStream(type + ".json");
-            String mappingSource = GeocoderHelper.toString(is);
-            client.admin().indices().create(new CreateIndexRequest(indexName).mapping(type, mappingSource)).actionGet();
+            String settingsStr = GeocoderHelper.toString(getClass().getResourceAsStream("settings.json"));
+            String mappingSource = GeocoderHelper.toString(getClass().getResourceAsStream(type + ".json"));
+            
+            client.admin().indices().create(new CreateIndexRequest(indexName).
+                    settings(settingsStr).
+                    mapping(type, mappingSource)).actionGet();
             if (log)
                 logger.info("Created index: " + indexName);
         } catch (Exception ex) {

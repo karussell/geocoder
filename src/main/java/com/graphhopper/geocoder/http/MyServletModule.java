@@ -2,10 +2,8 @@ package com.graphhopper.geocoder.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import com.google.inject.Provides;
-import com.sun.jersey.api.core.PackagesResourceConfig;
 import com.sun.jersey.guice.JerseyServletModule;
 import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
 import java.util.HashMap;
@@ -31,6 +29,9 @@ public class MyServletModule extends JerseyServletModule {
 
         filter("/*").through(MyGZIPHook.class, params);
         bind(MyGZIPHook.class).in(Singleton.class);
+        
+        filter("/*").through(CORSFilter.class);
+        bind(CORSFilter.class).in(Singleton.class);
 
         bind(GeocoderResource.class).in(Singleton.class);
 

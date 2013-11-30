@@ -177,9 +177,11 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         if (value != null && isAreaAdminBound)
             try {
                 int adminLevel = Integer.parseInt(value);
-                // accept 7 (towns) and 8 (cities, villages, hamlets)
+                // 9 (city districts)
+                // 8 (cities, villages, hamlets)
+                // accept 7 (towns) 
                 // accept 6: cities do not (often?) have boundaries
-                if (adminLevel < 6 || adminLevel > 8)
+                if (adminLevel < 6 || adminLevel > 9)
                     return null;
                 mainJson.put("admin_level", adminLevel);
             } catch (NumberFormatException ex) {

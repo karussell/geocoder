@@ -1,6 +1,5 @@
 package com.graphhopper.geocoder;
 
-import com.google.inject.Inject;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
@@ -15,14 +14,17 @@ import org.slf4j.LoggerFactory;
 public abstract class BaseES {
 
     protected Logger logger = LoggerFactory.getLogger(getClass());
-    @Inject
     protected final Configuration config;
     protected final String osmType = "osmobject";
     protected final String osmIndex = "osm";
     protected Client client;
 
-    public BaseES(Configuration config) {
+    public BaseES(Configuration config, Client client) {
         this.config = config;
+        if (client == null)
+            throw new IllegalArgumentException("client cannot be null");
+
+        this.client = client;
     }
 
     public static Client createClient(String cluster, String url, int port) {
@@ -31,23 +33,12 @@ public abstract class BaseES {
         tmp.addTransportAddress(new InetSocketTransportAddress(url, port));
         return tmp;
     }
-    
-    public void setClient(Client client) {
-        if (client == null)
-            throw new IllegalArgumentException("client cannot be null");
 
-        this.client = client;
-    }
-
-    public void start() {
+    public static Client createClient(Configuration config) {
         // "failed to get node info for..." -> wrong elasticsearch version for client vs. server
-
         String cluster = config.getElasticSearchCluster();
         String host = config.getElasticSearchHost();
         int port = config.getElasticSearchPort();
-        setClient(createClient(cluster, host, port));
-        feed();
+        return createClient(cluster, host, port);
     }
-
-    public abstract void feed();    
 }

@@ -1,0 +1,30 @@
+{
+    "action": {
+        "disable_delete_all_indices": true
+    },
+    "analysis": {
+        "analyzer": {
+            "geocoder_search": {
+                "tokenizer": "my_geocoder_tok",
+                "filter": ["lowercase"]
+            },
+            "geocoder_index": {
+                "tokenizer": "my_geocoder_tok",
+                "filter": ["lowercase", "edge_ngram"]
+            }
+        },
+        "tokenizer": {
+            "my_geocoder_tok": {
+                "pattern": "[^\\p{L}\\d]+",
+                "type": "pattern"
+            }
+        },
+        "filter": {
+            "edge_ngram": {
+                "type": "edgeNGram",
+                "min_gram": 1,
+                "max_gram": 20
+            }
+        }
+    }
+}
