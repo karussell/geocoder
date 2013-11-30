@@ -144,3 +144,4 @@ Infos
  * match_phrase_prefix has problems e.g. with 'dr' => 'dresden' is not returned
     or "dresden go" => 'dresden gorbitz' is not returned
  * ngram stuff has problem for dresden b => dresdenerstrasse still matches!?
+   http://stackoverflow.com/questions/9421358/filename-search-with-elasticsearch/9432450#9432450

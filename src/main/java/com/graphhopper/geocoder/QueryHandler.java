@@ -22,14 +22,12 @@ public class QueryHandler extends BaseES {
     public SearchResponse doRequest(String query, int size) {
         if (query == null || query.isEmpty())
             return null;
-        // QueryBuilder builder = QueryBuilders.fuzzyQuery("name", query).maxExpansions(10);
         QueryBuilder builder = QueryBuilders.matchQuery("name", query).minimumShouldMatch("3<90%").fuzziness(0.8);
         SearchRequestBuilder srb = _doSearch(builder, size);
         return srb.get();
     }
 
-    public SearchResponse suggest(String query, int size) {
-        // using ngram technic: http://stackoverflow.com/questions/9421358/filename-search-with-elasticsearch/9432450#9432450
+    public SearchResponse suggest(String query, int size) {        
         if (query == null || query.isEmpty())
             return null;
         // TODO replace via tokenizer
@@ -40,8 +38,9 @@ public class QueryHandler extends BaseES {
             front = query.substring(0, index);
             end = query.substring(index + 1);
         }
-        QueryBuilder builder = QueryBuilders.prefixQuery("name", end);
+        QueryBuilder builder = QueryBuilders.prefixQuery("name", end.toLowerCase());
         if (!front.isEmpty()) {
+            // not fuzzy as suggest should be stricter when filtering
             builder = QueryBuilders.boolQuery().
                     must(builder).
                     must(QueryBuilders.matchQuery("name", front).minimumShouldMatch("3<90%"));

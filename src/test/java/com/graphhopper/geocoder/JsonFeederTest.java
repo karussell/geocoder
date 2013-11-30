@@ -166,7 +166,7 @@ public class JsonFeederTest extends AbstractNodesTests {
         JsonArray coordinates = array(-11, 11);
         JsonObject geo = $(_("type", "Point"), _("coordinates", coordinates));
 
-        list.add($(_("id", "osmway/123"), _("geometry", geo), _("name", "dresden gorbitz birkenstrasse")));
+        list.add($(_("id", "osmway/123"), _("geometry", geo), _("name", "Dresden gorbitz birkenstrasse")));
         list.add($(_("id", "osmway/124"), _("geometry", geo), _("name", "bautzen dresdenerstrasse")));
 
         Collection<Integer> res = feeder.bulkUpdate(list, osmIndex, osmType);
@@ -177,6 +177,8 @@ public class JsonFeederTest extends AbstractNodesTests {
         assertEquals(2, rsp.getHits().getTotalHits());
 
         rsp = queryHandler.suggest("bau", 10);
+        assertEquals(1, rsp.getHits().getTotalHits());
+        rsp = queryHandler.suggest("Bau", 10);
         assertEquals(1, rsp.getHits().getTotalHits());
 
         rsp = queryHandler.suggest("dresden ", 10);
