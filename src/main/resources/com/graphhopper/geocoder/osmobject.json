@@ -28,6 +28,12 @@
             "population" : {
                 "type" : "long"                
             },
+            "bounds_area" : {
+                "type" : "double"                
+            },
+            "type_rank" : {
+                "type" : "double"                
+            },
             "center": {
                 "type": "geo_point"                
             },

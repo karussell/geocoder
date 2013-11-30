@@ -1,8 +1,10 @@
-# fix reference to city for streets with admin boundary help 
+# 1. get all boundaries and merge with its parents
+  2. fetch all streets+pois+(unassigned stuff) and determine boundary -> BoundaryIndex.search
+     if no boundary matched => calculate closest via distance
+  3. feed updated entries
 
-# ... and with approximative search
-
-integration + more unit tests - see below!!
+fix counter clock wise hack in calcArea
+integration and more unit tests - see below!!
 if ambiguity is detected for a name => display it beneath the input
   find duplicate streets in Berlin => check zipcode or other different info
     torstraße, bergstraße, mind. 3 Wrangelstraßen
@@ -11,6 +13,7 @@ replace nominatim geocoding too! not only suggestions
 'more link' in suggestions e.g. already necessary for 'bremen'
 phonetic analyzer => umlaute and ph/f and more
 world wide!
+feed and search index can be different -> important for live situation!
 
 release!
 ########

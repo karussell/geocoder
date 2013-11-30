@@ -10,12 +10,13 @@ import static com.github.jsonj.tools.JsonBuilder._;
 import static com.github.jsonj.tools.JsonBuilder.array;
 import com.graphhopper.geohash.KeyAlgo;
 import com.graphhopper.geohash.SpatialKeyAlgo;
-import com.graphhopper.util.shapes.GHPoint;
+import com.graphhopper.util.PointList;
 import gnu.trove.list.array.TLongArrayList;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -47,7 +48,7 @@ public class JsonFeeder extends BaseES {
         keyAlgo = new SpatialKeyAlgo(config.getSpatialKeyResolution());
     }
 
-    public void start() {        
+    public void start() {
         initIndices();
 
         OsmPostProcessor processor = new MyOsmPostProcessor(new JsonParser()) {
@@ -141,6 +142,7 @@ public class JsonFeeder extends BaseES {
                 String geoType = jsonObj.getString("type");
                 JsonArray arr = jsonObj.getArray("coordinates");
                 foundLocation = true;
+                double boundsArea = 0;
                 double[] middlePoint = null;
 
                 if ("Point".equalsIgnoreCase(geoType)) {
@@ -153,13 +155,13 @@ public class JsonFeeder extends BaseES {
                 } else if ("Polygon".equalsIgnoreCase(geoType)) {
                     // A polygon is defined by a list of a list of points. The first and last points in each list must be the same (the polygon must be closed).
                     // The first array represents the outer boundary of the polygon (unsupported: the other arrays represent the interior shapes (holes))
-                    List<GHPoint> pointList = GeocoderHelper.polygonToPointList(arr.get(0).asArray());
+                    PointList pointList = GeocoderHelper.polygonToPointListGH(arr.get(0).asArray());
                     if (pointList.size() < 4)
                         continue;
 
-                    middlePoint = GeocoderHelper.calcCentroid(pointList);
+                    middlePoint = GeocoderHelper.calcCentroidGH(pointList);
+                    boundsArea = GeocoderHelper.calcAreaGH(pointList);
                     JsonArray boundary = simplify(pointList, arr.get(0).asArray());
-
                     if (boundary.size() > 3) {
                         if (isBoundary)
                             result.put("is_boundary", true);
@@ -174,27 +176,38 @@ public class JsonFeeder extends BaseES {
                     // "geometry":{"type":"MultiPolygon","coordinates":[ (first polygon) [[lon, lat], ..], (next) [[lon, lat], ..]]                    
 
                     JsonArray coordinates = array();
+                    double largestArea = 0;
+                    int largestIndex = 0;
+                    int index = 0;
                     for (JsonArray polyArr : arr.arrays()) {
                         JsonArray outerBoundary = polyArr.get(0).asArray();
-                        List<GHPoint> pointList = GeocoderHelper.polygonToPointList(outerBoundary);
+                        PointList pointList = GeocoderHelper.polygonToPointListGH(outerBoundary);
                         if (pointList.size() < 4)
                             continue;
+
+                        double tmpArea = GeocoderHelper.calcAreaGH(pointList);
+                        boundsArea += tmpArea;
 
                         outerBoundary = simplify(pointList, outerBoundary);
                         if (outerBoundary.size() > 3) {
                             JsonArray polyBoundary = array();
                             polyBoundary.add(outerBoundary);
                             coordinates.add(polyBoundary);
+
+                            if (largestArea < tmpArea) {
+                                largestArea = tmpArea;
+                                largestIndex = index;
+                            }
+                            index++;
                         }
                     }
 
                     if (coordinates.isEmpty())
                         continue;
 
-                    // TODO Collections.sort(arr);
-                    // pick middle point from largest polygon == first polygon
+                    // pick middle point from largest polygon
                     middlePoint = GeocoderHelper.calcCentroid(GeocoderHelper.polygonToPointList(
-                            coordinates.get(0).asArray().get(0).asArray()));
+                            coordinates.get(largestIndex).asArray().get(0).asArray()));
 
                     if (isBoundary)
                         result.put("is_boundary", true);
@@ -209,6 +222,7 @@ public class JsonFeeder extends BaseES {
                     // lon,lat
                     result.put("center", array(middlePoint[1], middlePoint[0]));
 
+                result.put("bounds_area", boundsArea);
             } else if (key.equalsIgnoreCase("center_node")) {
                 // a relation normally has a center_node associated -> could make fetching easier/faster
                 result.put("center_node", el);
@@ -255,37 +269,64 @@ public class JsonFeeder extends BaseES {
                 logger.warn("Not explicitely supported " + el.type() + ": " + key + " -> " + el.toString());
             }
         }
-        if (!foundPopulation) {
-            long population = 0L;
 
-            // https://wiki.openstreetmap.org/wiki/Key:place
-            if ("city".equals(type))
-                population = 100000L;
-            else if ("town".equals(type))
-                population = 10000L;
-            // parts of cities == city districts
-            else if ("borough".equals(type))
-                population = 1050L;
-            // TODO can be a suburb of a village or a city etc
-//            else if ("suburb".equals(type))
-//                population = 1040L;
-            else if ("village".equals(type))
-                population = 1000L;
-            else if ("hamlet".equals(type))
-                population = 50L;
-            else if ("locality".equals(type))
-                population = 1L;
-
-            if (population > 0)
-                result.put("population_estimated", true);
-            result.put("population", population);
-        }
+        Double typeRank = typeRankMap.get(type);
+        if (typeRank == null)
+            typeRank = 0d;
+        result.put("type_rank", typeRank);
 
         if (!foundLocation)
             throw new IllegalStateException("No location found in document:" + mainJson.toString());
 
         return result;
     }
+
+    Map<String, Double> typeRankMap = new HashMap<String, Double>() {
+        {
+            // https://wiki.openstreetmap.org/wiki/Key:place
+            put("city", 1000d);
+            put("town", 995d);
+            put("borough", 990d);
+            put("village", 985d);
+            put("hamlet", 980d);
+            put("locality", 975d);
+            
+            put("bus_stop", 120d);
+            put("motorway_junction", 110d);
+
+            put("motorway", 100d);
+            put("motorway_link", 70d);
+            // bundesstraße
+            put("trunk", 70d);
+            put("trunk_link", 65d);
+            // linking bigger town
+            put("primary", 65d);
+            put("primary_link", 60d);
+            // linking towns + villages
+            put("secondary", 60d);
+            put("secondary_link", 50d);
+            // streets without middle line separation
+            put("tertiary", 50d);
+            put("tertiary_link", 40d);
+            put("unclassified", 30d);
+            put("residential", 30d);            
+            put("service", 20d);
+            // unknown road
+            put("road", 20d);
+            // forestry stuff
+            put("track", 20d);
+            
+            put("cycleway", 14d);
+            put("path", 10d);
+            
+            // spielstraße
+            put("living_street", 5d);
+            put("footway", 5d);            
+            put("pedestrian", 5d);
+
+            put("steps", 3d);            
+        }
+    };
 
     String fixName(String name) {
         if (name.contains("/")) {
@@ -308,7 +349,7 @@ public class JsonFeeder extends BaseES {
      * compare to the previous one. If identical -> skip. So, if the resolution
      * is very low only a few points are added to the rboundaryesulting array.
      */
-    public JsonArray simplify(List<GHPoint> pointList, JsonArray orig) {
+    public JsonArray simplify(PointList pointList, JsonArray orig) {
         // skip simplify if small boundary
         if (orig.size() < config.getSmallBoundary())
             return orig;
@@ -319,8 +360,9 @@ public class JsonFeeder extends BaseES {
         int LAST_N = 3;
         LOOP:
         for (int i = 0; i < max; i++) {
-            GHPoint p = pointList.get(i);
-            long key = keyAlgo.encode(p.lat, p.lon);
+            double lat = pointList.getLatitude(i);
+            double lon = pointList.getLongitude(i);
+            long key = keyAlgo.encode(lat, lon);
             keys.add(key);
 
             // Do not skip ends of list, otherwise we get: IllegalArgumentException[Points of LinearRing do not form a closed linestring];
@@ -331,8 +373,8 @@ public class JsonFeeder extends BaseES {
                         continue LOOP;
                 }
             }
-            outerBoundary.add(array(p.lat, p.lon));
-        }        
+            outerBoundary.add(array(lat, lon));
+        }
         if (outerBoundary.size() < 4) {
             logger.warn("reduced multi too much: " + outerBoundary.size() + " vs. original " + orig.size());
             return orig;
@@ -354,7 +396,7 @@ public class JsonFeeder extends BaseES {
         try {
             String settingsStr = GeocoderHelper.toString(getClass().getResourceAsStream("settings.json"));
             String mappingSource = GeocoderHelper.toString(getClass().getResourceAsStream(type + ".json"));
-            
+
             client.admin().indices().create(new CreateIndexRequest(indexName).
                     settings(settingsStr).
                     mapping(type, mappingSource)).actionGet();

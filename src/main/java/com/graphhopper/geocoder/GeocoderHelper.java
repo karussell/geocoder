@@ -117,32 +117,45 @@ public class GeocoderHelper {
         return new double[]{lat, lon};
     }
 
-    /**
-     * Calculates the mean value out of all lat,lon pairs. Use calcCentroid for
-     * a more precise calculation.
-     */
-    static double[] calcSimpleMean(List<GHPoint> list) {
+    static double calcArea(List<GHPoint> list) {
+        // http://en.wikipedia.org/wiki/Polygon#Area_and_centroid
         if (list.isEmpty())
-            return null;
-        double lat = 0, lon = 0;
-        int max = list.size();
-        for (GHPoint p : list) {
-            lat += p.lat;
-            lon += p.lon;
+            return 0;
+
+        double polyArea = 0;
+        int max = list.size() - 1;
+        for (int i = 0; i < max; i++) {
+            GHPoint p = list.get(i);
+            GHPoint p1 = list.get(i + 1);
+            double TMP = p.lon * p1.lat - p1.lon * p.lat;
+            polyArea += TMP;
         }
-        return new double[]{lat / max, lon / max};
+        polyArea /= 2;
+        // TODO check isCCW
+        if (polyArea < 0)
+            return -polyArea;
+        return polyArea;
     }
 
-    static double[] calcSimpleMeanGH(PointList list) {
+    static double calcAreaGH(PointList list) {
         if (list.isEmpty())
-            return null;
-        double lat = 0, lon = 0;
-        int max = list.getSize();
+            return 0;
+
+        double polyArea = 0;
+        int max = list.size() - 1;
         for (int i = 0; i < max; i++) {
-            lat += list.getLatitude(i);
-            lon += list.getLongitude(i);
+            double tmpLat = list.getLatitude(i);
+            double tmpLat_p1 = list.getLatitude(i + 1);
+            double tmpLon = list.getLongitude(i);
+            double tmpLon_p1 = list.getLongitude(i + 1);
+            double TMP = tmpLon * tmpLat_p1 - tmpLon_p1 * tmpLat;
+            polyArea += TMP;
         }
-        return new double[]{lat / max, lon / max};
+        polyArea /= 2;
+        // TODO check isCCW
+        if (polyArea < 0)
+            return -polyArea;
+        return polyArea;
     }
 
     static double[] calcCentroidGH(PointList list) {
@@ -159,7 +172,6 @@ public class GeocoderHelper {
         // A = 1/2 sum_0_to_n-1 TMP(i)
         // lat = C_y = 1/6A sum (lat_i + lat_(i+1) ) * TMP(i)
         // lon = C_x = 1/6A sum (lon_i + lon_(i+1) ) * TMP(i)        
-
         int max = list.getSize() - 1;
         for (int i = 0; i < max; i++) {
             double tmpLat = list.getLatitude(i);
@@ -174,7 +186,6 @@ public class GeocoderHelper {
         polyArea /= 2;
         lat = lat / (6 * polyArea);
         lon = lon / (6 * polyArea);
-
         return new double[]{lat, lon};
     }
 
@@ -193,7 +204,6 @@ public class GeocoderHelper {
         // A = 1/2 sum_0_to_n-1 TMP(i)
         // lat = C_y = 1/6A sum (lat_i + lat_(i+1) ) * TMP(i)
         // lon = C_x = 1/6A sum (lon_i + lon_(i+1) ) * TMP(i)        
-
         int max = list.size() - 1;
         for (int i = 0; i < max; i++) {
             GHPoint p = list.get(i);
@@ -210,7 +220,6 @@ public class GeocoderHelper {
         polyArea /= 2;
         lat = lat / (6 * polyArea);
         lon = lon / (6 * polyArea);
-
         return new double[]{lat, lon};
     }
 
@@ -230,20 +239,20 @@ public class GeocoderHelper {
             tmpRes.add(array(polyList.getLongitude(i), polyList.getLatitude(i)));
         }
         return tmpRes;
-    }    
+    }
 
     public static List<GHPoint> polygonToPointList(JsonArray arr) {
         if (arr.isEmpty())
             return Collections.EMPTY_LIST;
 
         List<GHPoint> list = new ArrayList<GHPoint>(arr.size());
-        for (JsonArray innerstArr : arr.arrays()) {            
+        for (JsonArray innerstArr : arr.arrays()) {
             list.add(new GHPoint(innerstArr.get(1).asDouble(), innerstArr.get(0).asDouble()));
         }
         return list;
     }
 
-    public static PointList polygonToGHPointList(JsonArray arr) {
+    public static PointList polygonToPointListGH(JsonArray arr) {
         if (arr.isEmpty())
             return PointList.EMPTY;
 

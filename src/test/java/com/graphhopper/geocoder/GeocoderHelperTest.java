@@ -28,11 +28,8 @@ public class GeocoderHelperTest {
         double[] res = GeocoderHelper.calcCentroid(list);
         assertEquals(48.694130, res[0], 1e-5);
         assertEquals(9.1603476, res[1], 1e-5);
-
-        res = GeocoderHelper.calcSimpleMean(list);
-        assertEquals(48.694180, res[0], 1e-5);
-        assertEquals(9.1603476, res[1], 1e-5);
     }
+
     public List<GHPoint> parseJSON(String str) {
         List<GHPoint> res = new ArrayList<GHPoint>();
         for (String latlon : str.split("\\[")) {

@@ -53,7 +53,8 @@ public class QueryHandler extends BaseES {
         return client.prepareSearch(osmIndex).setTypes(osmType).
                 setSize(size).
                 setQuery(query).
-                addSort("population", SortOrder.DESC);
+                addSort("population", SortOrder.DESC).
+                addSort("type_rank", SortOrder.DESC);
     }
 
     public SearchResponse rawRequest(String query) {
