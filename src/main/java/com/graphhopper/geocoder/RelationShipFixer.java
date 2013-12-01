@@ -6,6 +6,7 @@ import org.elasticsearch.action.admin.indices.flush.FlushRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -41,25 +42,20 @@ public class RelationShipFixer extends BaseES {
     }
 
     public void start() {
-        
+        assignEntriesWithBounds();
+        // if no boundary matched => calculate closest via distance to city, village, ...
     }
 
     /**
-     * a) get all entries with bounds. has_bounds:true => get bounds,
-     * center_node and eventually admin_level
+     * 1. get all boundaries and merge with its parents
      *
-     * b) get is_in stuff from center_node => "query":
-     * "_id:\"osmnode/29927546\"" => name: Pirna with is_in tags (=> set bounds)
-     * or 30361883 => Bautzen
+     * 2. fetch all streets+pois+(unassigned stuff) and determine boundary ->
+     * BoundaryIndex.search
      *
-     * c) get all in bounds except bounds+village+town+city+... set is_in array
-     *
-     * somehow merge boundary+city/town (and remove boundary)
+     * 3. feed updated entries
      */
     private void assignEntriesWithBounds() {
-        // TODO it would be good if we could sort by area size to update small areas first
-        // and bigger areas will ignore already assigned streets
-
+        // 1.
         SearchResponse rsp = createScan(FilterBuilders.termFilter("has_boundary", true)).get();
         scroll(rsp, new Execute() {
 
@@ -78,23 +74,75 @@ public class RelationShipFixer extends BaseES {
 
             @Override public void handle(SearchHit scanSearchHit) {
                 current++;
-                String name = (String) scanSearchHit.getSource().get("name");
-                String centerNode = (String) scanSearchHit.getSource().get("center_node");
-                Integer adminLevel = (Integer) scanSearchHit.getSource().get("admin_level");
-                Map bounds = (Map) scanSearchHit.getSource().get("bounds");
 
-                // System.out.println(name + ", " + centerNode + ", " + adminLevel + ", " + coords);
-                if (current % 10 == 0)
-                    logger.info((float) current * 100 / total + "% -> time/call:" + timePerCall);
+                String boundaryId = scanSearchHit.getId();
+                Map<String, Object> boundarySource = scanSearchHit.getSource();
+                String name = (String) boundarySource.get("name");
+                Map bounds = (Map) boundarySource.get("bounds");
+                if (bounds == null)
+                    throw new IllegalStateException("has_boundary but no bounds!?" + boundaryId + ", " + name);
 
-                // TODO fetch not only 10!
-                SearchResponse rsp = client.prepareSearch(osmIndex).
-                        setFilter(getFilterFromCoordinates(bounds)).
-                        setQuery(QueryBuilders.matchAllQuery()).
-                        get();
-                for (SearchHit boundarySH : rsp.getHits().getHits()) {
-                    logger.info(boundarySH.toString());
+                String centerNode = (String) boundarySource.get("center_node");
+                if (centerNode == null) {
+                    logger.warn("skipping boundary " + boundaryId + ". no center_node!? " + name);
+                    return;
                 }
+                centerNode = "osmnode/" + centerNode;
+
+//                if (current % 10 == 0)
+//                    logger.info((float) current * 100 / total + "% -> time/call:" + timePerCall);
+                SearchResponse rsp = client.prepareSearch(osmIndex).
+                        setQuery(QueryBuilders.idsQuery(osmType).addIds(centerNode)).
+                        get();
+
+                if (rsp.getHits().getHits().length != 1) {
+                    logger.warn("center_node not found!? " + centerNode);
+                    return;
+                }
+
+                SearchHit parent = rsp.getHits().getHits()[0];
+                String parentId = parent.getId();
+                try {
+                    Map<String, Object> parentSource = parent.getSource();
+
+                    if (parentSource.containsKey("bounds")) {
+                        logger.info("Parent " + parentId + " already contains boundary. It was: " + boundaryId);
+                    } else {
+                        parentSource.put("bounds", bounds);
+
+                        if (!parentSource.containsKey("admin_level")) {
+                            Integer adminLevel = (Integer) boundarySource.get("admin_level");
+                            parentSource.put("admin_level", adminLevel);
+                        }
+
+                        if (!parentSource.containsKey("wikipedia")) {
+                            String wikipedia = (String) boundarySource.get("wikipedia");
+                            parentSource.put("wikipedia", wikipedia);
+                        }
+
+                        if (!parentSource.containsKey("type_rank")) {
+                            String typeRank = (String) boundarySource.get("type_rank");
+                            parentSource.put("type_rank", typeRank);
+                        }
+
+                        parentSource.put("has_boundary", true);
+                        // TODO can we omit get() here?
+                        client.index(new IndexRequest(osmIndex, osmType, parentId).source(parentSource)).get();
+                    }
+                } catch (Exception ex) {
+                    logger.error("Problem while feeding parent " + parentId + " of boundary " + boundaryId, ex);
+                }
+
+                try {
+                    client.delete(new DeleteRequest(osmIndex, osmType, boundaryId)).get();
+                } catch (Exception ex) {
+                    logger.error("Problem while deleting " + boundaryId, ex);
+                }
+            }
+
+            private void assertNull(Object o) {
+                if (o != null)
+                    throw new IllegalStateException("Object should be null but wasn't " + o);
             }
 
             private FilterBuilder getFilterFromCoordinates(Map bounds) {
@@ -115,7 +163,7 @@ public class RelationShipFixer extends BaseES {
 
             GeoPolygonFilterBuilder getGeoFilter(List polygon) {
                 GeoPolygonFilterBuilder filter = FilterBuilders.geoPolygonFilter("areaFilter");
-                if(polygon.size() != 1)
+                if (polygon.size() != 1)
                     throw new IllegalStateException("polygon size does not match " + polygon.size());
                 for (Object o : (List) polygon.get(0)) {
                     List coord = (List) o;

@@ -2,11 +2,7 @@ street [no],[zipcode,] [near] city|village [province|county] [country]
     add 'near' if only a guess => is_near vs. is_in?
     allow multiple is_near
 
-# 1. get all boundaries and merge with its parents
-  2. fetch all streets+pois+(unassigned stuff) and determine boundary -> BoundaryIndex.search
-     if no boundary matched => calculate closest via distance
-     calculate closest distance to city, village, ... probably without boundary
-  3. feed updated entries
+# add location info (+ is_in) to every street!
 
 fix counter clock wise hack in calcArea
 integration and more unit tests - see below!!
@@ -36,7 +32,9 @@ gorbitz is_in Dresden,Dresden,Dresden,Sachsen why 3 times dresden ?
 
 optimize storage: 
   POIs => instead separate entity add to street ala street.pois{name_0=sxc,number_0=1a,latlon_0=53,49.0, ..}  
-fine tuning  
+fine tuning
+  * clustering of nodes to calculate bounds of villages!
+    https://github.com/Leaflet/Leaflet.markercluster
   * instead of population => calculate area and sort by area? => more complete data!
     also include type for sorting! town, city, village, hamlet, locality
   * boost streets (e.g. not bus_stop)
@@ -44,6 +42,7 @@ fine tuning
   * synonyms like nyc
   * if selecting a thing from suggester which has bounds => display them
   * use calculated area from (multi)polygon! include in 'sort' for suggester (not only population)
+  * https://wiki.openstreetmap.org/wiki/Relation:multipolygon/Algorithm
 
 # tune spatial key resolution for boundary simplification! why is time nearly identical??
     key=32: 1m27, simplified to 25%

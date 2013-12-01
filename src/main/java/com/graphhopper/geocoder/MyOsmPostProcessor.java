@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 public class MyOsmPostProcessor extends OsmPostProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    private StopWatch sw = new StopWatch().start();
+    private final StopWatch sw = new StopWatch().start();
     private long counter = 0;
     private int bulkSize;
 
