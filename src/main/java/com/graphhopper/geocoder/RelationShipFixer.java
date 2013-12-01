@@ -41,9 +41,7 @@ public class RelationShipFixer extends BaseES {
     }
 
     public void start() {
-        assignEntriesWithBounds();
-
-        assignEntriesWithoutBounds();
+        
     }
 
     /**
@@ -62,7 +60,7 @@ public class RelationShipFixer extends BaseES {
         // TODO it would be good if we could sort by area size to update small areas first
         // and bigger areas will ignore already assigned streets
 
-        SearchResponse rsp = createScan(FilterBuilders.termFilter("is_boundary", true)).get();
+        SearchResponse rsp = createScan(FilterBuilders.termFilter("has_boundary", true)).get();
         scroll(rsp, new Execute() {
 
             long total;

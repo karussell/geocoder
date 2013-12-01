@@ -1,6 +1,11 @@
+street [no],[zipcode,] [near] city|village [province|county] [country]
+    add 'near' if only a guess => is_near vs. is_in?
+    allow multiple is_near
+
 # 1. get all boundaries and merge with its parents
   2. fetch all streets+pois+(unassigned stuff) and determine boundary -> BoundaryIndex.search
      if no boundary matched => calculate closest via distance
+     calculate closest distance to city, village, ... probably without boundary
   3. feed updated entries
 
 fix counter clock wise hack in calcArea

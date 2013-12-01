@@ -72,6 +72,11 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
     protected JsonObject interpretTags(JsonObject input, JsonObject mainJson) {
         JsonObject tags = input.getObject("tags");
         input.remove("tags");
+        JsonElement name = mainJson.get("title");
+        if (name == null)
+            return null;
+        if(input.getString("id").equalsIgnoreCase("191645"))
+            name = name;
         JsonObject address = new JsonObject();
         JsonObject names = new JsonObject();
         JsonObject osmCategories = new JsonObject();
@@ -90,7 +95,10 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                 address.put(addrKey, value);
             } else if (tagName.startsWith("name:")) {
                 String language = tagName.substring(5);
-                names.put(language, value);
+                if ("prefix".equals(language))
+                    mainJson.put("name_prefix", value);
+                else
+                    names.put(language, value);
             } else if (tagName.endsWith(":place")) {
                 local_place = value;
             }
@@ -132,9 +140,8 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         if (value != null)
             osmCategories.put("building", value);
 
-        // 'type' is either place (city|town|village), highway (primary|secondary) or boundary.
-        // If more than one of these is used in OSM (which makes no sense) then highway over place 
-        // and boundary over highway is preferred
+        // 'type' is either place (city|town|village) or highway (primary|secondary)
+        // If more than one of these is used in OSM (which makes no sense) then highway over place is preferred
         String type = null;
         value = tags.getString("place");
         if (value != null) {
@@ -150,20 +157,19 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
         }
 
         String border_type = tags.getString("border_type");
-
         boolean isAreaAdminBound = false;
         value = tags.getString("boundary");
         if ("administrative".equals(value) && notState(local_place) && notState(border_type)) {
             isAreaAdminBound = true;
-            // prefer bounds over highway or place
-            type = "boundary";
+            // do not overwrite type
+            if (type == null)
+                type = "boundary";
         }
 
-        JsonElement name = mainJson.get("title");
-        if (type == null || name == null)
+        if (type == null)
             return null;
         mainJson.put("type", type);
-        // I don't like title -> use name instead                
+        // I don't like title -> use original OSM 'name' instead                
         mainJson.put("name", name.asString());
         mainJson.remove("title");
 
@@ -179,8 +185,8 @@ public class MyOsmPostProcessor extends OsmPostProcessor {
                 int adminLevel = Integer.parseInt(value);
                 // 9 (city districts)
                 // 8 (cities, villages, hamlets)
-                // accept 7 (towns) 
-                // accept 6: cities do not (often?) have boundaries
+                // accept 7 towns 
+                // accept 6 cities
                 if (adminLevel < 6 || adminLevel > 9)
                     return null;
                 mainJson.put("admin_level", adminLevel);

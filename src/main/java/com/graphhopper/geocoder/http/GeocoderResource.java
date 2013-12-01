@@ -41,14 +41,24 @@ public class GeocoderResource {
         Map<String, Object> json = new HashMap<String, Object>();
         SearchResponse rsp;
         if (suggest)
-            rsp = queryHandler.suggest(address, size);            
+            rsp = queryHandler.suggest(address, size);
         else
             rsp = queryHandler.doRequest(address, size);
-            
+
         long total = 0;
         List<Map<String, Object>> results = new ArrayList<Map<String, Object>>();
         if (rsp != null) {
             for (SearchHit sh : rsp.getHits().getHits()) {
+                Map bounds = (Map) sh.getSource().get("bounds");
+                if (bounds != null) {
+                    if (bounds.get("type").equals("polygon"))
+                        bounds.put("type", "Polygon");
+                    else if (bounds.get("type").equals("mulipolygon"))
+                        bounds.put("type", "MultiPolygon");
+                    else if (bounds.get("type").equals("linestring"))
+                        bounds.put("type", "LineString");
+                    sh.getSource().put("bounds", bounds);
+                }
                 results.add(sh.getSource());
             }
             total = rsp.getHits().getTotalHits();

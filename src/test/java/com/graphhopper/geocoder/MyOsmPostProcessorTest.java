@@ -87,5 +87,13 @@ public class MyOsmPostProcessorTest {
         obj.getObject("tags").put("admin_level", "5");
         obj = postProc.interpretTags(obj, obj);
         assertNull(obj);
+        
+        // city with bounds
+        obj = createPolygon();
+        obj.getObject("tags").put("place", "city");
+        obj = postProc.interpretTags(obj, obj);
+        assertEquals("city", obj.getString("type"));
+        assertEquals("7", obj.getString("admin_level"));
+        assertNotNull(obj.get("geometry"));
     }
 }

@@ -122,7 +122,6 @@ public class JsonFeeder extends BaseES {
     public JsonObject createDoc(JsonObject mainJson) throws IOException {
         JsonObject result = new JsonObject();
         boolean foundLocation = false;
-        boolean foundPopulation = false;
         String name = mainJson.getString("name");
         result.put("name", fixName(name));
 
@@ -164,7 +163,7 @@ public class JsonFeeder extends BaseES {
                     JsonArray boundary = simplify(pointList, arr.get(0).asArray());
                     if (boundary.size() > 3) {
                         if (isBoundary)
-                            result.put("is_boundary", true);
+                            result.put("has_boundary", true);
                         JsonArray polyBoundary = array();
                         polyBoundary.add(boundary);
                         result.put("bounds", $(_("type", "polygon"),
@@ -210,7 +209,7 @@ public class JsonFeeder extends BaseES {
                             coordinates.get(largestIndex).asArray().get(0).asArray()));
 
                     if (isBoundary)
-                        result.put("is_boundary", true);
+                        result.put("has_boundary", true);
 
                     result.put("bounds", $(_("type", "multipolygon"), _("coordinates", coordinates)));
 
@@ -241,7 +240,6 @@ public class JsonFeeder extends BaseES {
 
             } else if (key.equalsIgnoreCase("population")) {
                 result.put("population", el);
-                foundPopulation = true;
 
             } else if (key.equalsIgnoreCase("is_in")) {
                 result.put("is_in", el);
@@ -261,7 +259,10 @@ public class JsonFeeder extends BaseES {
 
             } else if (key.equalsIgnoreCase("admin_level")) {
                 result.put("admin_level", el);
-
+                
+            } else if (key.equalsIgnoreCase("name_prefix")) {
+                result.put("name_prefix", el);
+            
             } else {
                 if (!minimalData)
                     result.put(key, el);
