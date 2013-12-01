@@ -1,101 +1,101 @@
 {
-    "osmobject" : {
-        "_all" : {
-            "enabled" : false
+    "osmobject": {
+        "_all": {
+            "enabled": false
         },
         "properties": {
-            "name_old" : { 
-               "type" : "string",
-               "search_analyzer" : "geocoder_search",
-               "index_analyzer" : "geocoder_index"
+            "name_old": {
+                "type": "string",
+                "search_analyzer": "geocoder_search",
+                "index_analyzer": "geocoder_index"
             },
-            "name" : { 
-               "type" : "string",
-                "index" : "analyzed"
+            "name": {
+                "type": "string",
+                "index": "analyzed"
             },
-            "title" : {
-                "type" : "string",  
-                "index" : "analyzed"
+            "title": {
+                "type": "string",
+                "index": "analyzed"
             },
-            "link" : {
-                "type" : "string",  
-                "index" : "not_analyzed"
+            "link": {
+                "type": "string",
+                "index": "not_analyzed"
             },
-            "wikipedia" : {
-                "type" : "string",  
-                "index" : "not_analyzed"
+            "wikipedia": {
+                "type": "string",
+                "index": "not_analyzed"
             },
-            "population" : {
-                "type" : "long"                
+            "population": {
+                "type": "long"
             },
-            "bounds_area" : {
-                "type" : "double"                
+            "bounds_area": {
+                "type": "double"
             },
-            "type_rank" : {
-                "type" : "double"                
+            "type_rank": {
+                "type": "double"
             },
             "center": {
-                "type": "geo_point"                
+                "type": "geo_point"
             },
             "bounds": {
                 "type": "geo_shape",
                 "tree": "quadtree",
                 "precision": "50m"
             },
-            "address" : {
-                "properties" : {
-                    "full" : {
-                        "type" : "string",  
-                        "index" : "analyzed"
+            "address": {
+                "properties": {
+                    "full": {
+                        "type": "string",
+                        "index": "analyzed"
                     },
-                    "country" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
+                    "country": {
+                        "type": "string",
+                        "index": "not_analyzed"
                     },
-                    "state" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
-                    },  
-                    "province" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
+                    "state": {
+                        "type": "string",
+                        "index": "not_analyzed"
                     },
-                    "hamlet" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
+                    "province": {
+                        "type": "string",
+                        "index": "not_analyzed"
                     },
-                    "suburb" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
+                    "hamlet": {
+                        "type": "string",
+                        "index": "not_analyzed"
                     },
-                    "subdistrict" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
-                    },  
-                    "district" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
-                    },                    
-                    "county" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
+                    "suburb": {
+                        "type": "string",
+                        "index": "not_analyzed"
                     },
-                    "city" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
+                    "subdistrict": {
+                        "type": "string",
+                        "index": "not_analyzed"
                     },
-                    "street" : {
-                        "type" : "string",  
-                        "index" : "analyzed"
+                    "district": {
+                        "type": "string",
+                        "index": "not_analyzed"
                     },
-                    "housenumber" : {
-                        "type" : "string",  
-                        "index" : "analyzed"
+                    "county": {
+                        "type": "string",
+                        "index": "not_analyzed"
                     },
-                    "postcode" : {
-                        "type" : "string",  
-                        "index" : "not_analyzed"
-                    }                
+                    "city": {
+                        "type": "string",
+                        "index": "not_analyzed"
+                    },
+                    "street": {
+                        "type": "string",
+                        "index": "analyzed"
+                    },
+                    "housenumber": {
+                        "type": "string",
+                        "index": "analyzed"
+                    },
+                    "postcode": {
+                        "type": "string",
+                        "index": "not_analyzed"
+                    }
                 }
             }
         }

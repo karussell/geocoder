@@ -1,6 +1,5 @@
 package com.graphhopper.geocoder;
 
-import java.util.List;
 import java.util.Map;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
@@ -16,8 +15,6 @@ import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.FilterBuilder;
 import org.elasticsearch.index.query.FilterBuilders;
-import org.elasticsearch.index.query.GeoPolygonFilterBuilder;
-import org.elasticsearch.index.query.OrFilterBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 
@@ -42,35 +39,19 @@ public class RelationShipFixer extends BaseES {
     }
 
     public void start() {
-        assignEntriesWithBounds();
+        assignBoundaryToParent();
+        updateEntries();
+
+        // TODO
         // if no boundary matched => calculate closest via distance to city, village, ...
     }
 
     /**
-     * 1. get all boundaries and merge with its parents
-     *
-     * 2. fetch all streets+pois+(unassigned stuff) and determine boundary ->
-     * BoundaryIndex.search
-     *
-     * 3. feed updated entries
+     * get all boundaries and merge with its parents
      */
-    private void assignEntriesWithBounds() {
-        // 1.
+    private void assignBoundaryToParent() {
         SearchResponse rsp = createScan(FilterBuilders.termFilter("has_boundary", true)).get();
-        scroll(rsp, new Execute() {
-
-            long total;
-            long current;
-            long lastTime;
-            float timePerCall = -1;
-
-            @Override public void init(SearchResponse nextScroll) {
-                total = nextScroll.getHits().getTotalHits();
-                if (timePerCall >= 0) {
-                    timePerCall = (float) (System.nanoTime() - lastTime) / 1000000;
-                }
-                lastTime = System.nanoTime();
-            }
+        scroll(rsp, new SimpleExecute() {
 
             @Override public void handle(SearchHit scanSearchHit) {
                 current++;
@@ -88,9 +69,6 @@ public class RelationShipFixer extends BaseES {
                     return;
                 }
                 centerNode = "osmnode/" + centerNode;
-
-//                if (current % 10 == 0)
-//                    logger.info((float) current * 100 / total + "% -> time/call:" + timePerCall);
                 SearchResponse rsp = client.prepareSearch(osmIndex).
                         setQuery(QueryBuilders.idsQuery(osmType).addIds(centerNode)).
                         get();
@@ -139,41 +117,6 @@ public class RelationShipFixer extends BaseES {
                     logger.error("Problem while deleting " + boundaryId, ex);
                 }
             }
-
-            private void assertNull(Object o) {
-                if (o != null)
-                    throw new IllegalStateException("Object should be null but wasn't " + o);
-            }
-
-            private FilterBuilder getFilterFromCoordinates(Map bounds) {
-                List coords = (List) bounds.get("coordinates");
-                String type = (String) bounds.get("type");
-
-                if (type.equalsIgnoreCase("polygon")) {
-                    return getGeoFilter(coords);
-                } else if (type.equalsIgnoreCase("multipolygon")) {
-                    OrFilterBuilder filter = FilterBuilders.orFilter();
-                    for (Object o : coords) {
-                        filter.add(getGeoFilter((List) o));
-                    }
-                    return filter;
-                } else
-                    throw new IllegalStateException("unknown type " + type);
-            }
-
-            GeoPolygonFilterBuilder getGeoFilter(List polygon) {
-                GeoPolygonFilterBuilder filter = FilterBuilders.geoPolygonFilter("areaFilter");
-                if (polygon.size() != 1)
-                    throw new IllegalStateException("polygon size does not match " + polygon.size());
-                for (Object o : (List) polygon.get(0)) {
-                    List coord = (List) o;
-                    if (coord.size() != 2)
-                        throw new IllegalStateException("WHAT? " + coord);
-
-                    filter.addPoint((Double) coord.get(1), (Double) coord.get(0));
-                }
-                return filter;
-            }
         });
         client.admin().indices().flush(new FlushRequest(osmIndex)).actionGet();
     }
@@ -191,21 +134,44 @@ public class RelationShipFixer extends BaseES {
         return srb;
     }
 
+    String[] entries = {"city", "town", "borough", "village", "hamlet", "locality", "bus_stop", "motorway_junction"};
+
     /**
-     * a) get all villages etc without bounds
-     *
-     * b) determine radius from population, type
-     *
-     * c) query with radius and radius*1.1 (eventually until no longer
-     * increasing? max==5) use facets as additional indicator if radius too big
-     * (e.g. facet=assigned_address => if increasing number => radius is already
-     * too big)
-     *
-     * d) assign village+is_in to the returned streets+pois but exclude stuff
-     * also assigned
+     * Fetch all entries (streets, POIs, unassigned stuff) to determine the
+     * associated boundary with BoundaryIndex.search and feed the updated entry
+     * which should then contain is_in information and the city/village etc
      */
-    private void assignEntriesWithoutBounds() {
-        // "query": "type:village OR type:city OR type:town OR type:hamlet OR type:locality"
+    private void updateEntries() {
+        FilterBuilder filter = FilterBuilders.notFilter(FilterBuilders.existsFilter("is_in"));
+        SearchResponse rsp = createScan(filter).get();
+        scroll(rsp, new SimpleExecute() {
+
+            @Override public void handle(SearchHit scanSearchHit) {
+                current++;
+
+            }
+        });
+    }
+
+    abstract class SimpleExecute implements Execute {
+
+        long total;
+        long current;
+        long lastTime;
+        float timePerCall = -1;
+
+        @Override public void init(SearchResponse nextScroll) {
+            total = nextScroll.getHits().getTotalHits();
+            if (timePerCall >= 0) {
+                timePerCall = (float) (System.nanoTime() - lastTime) / 1000000;
+            }
+            lastTime = System.nanoTime();
+        }
+
+        protected void logInfo() {
+            if (current % 10 == 0)
+                logger.info((float) current * 100 / total + "% -> time/call:" + timePerCall);
+        }
     }
 
     public static interface Rewriter {

@@ -259,10 +259,10 @@ public class JsonFeeder extends BaseES {
 
             } else if (key.equalsIgnoreCase("admin_level")) {
                 result.put("admin_level", el);
-                
+
             } else if (key.equalsIgnoreCase("name_prefix")) {
                 result.put("name_prefix", el);
-            
+
             } else {
                 if (!minimalData)
                     result.put(key, el);
@@ -270,6 +270,9 @@ public class JsonFeeder extends BaseES {
                 logger.warn("Not explicitely supported " + el.type() + ": " + key + " -> " + el.toString());
             }
         }
+
+        if (!result.containsKey("population"))
+            result.put("population", 0L);
 
         Double typeRank = typeRankMap.get(type);
         if (typeRank == null)
@@ -291,7 +294,7 @@ public class JsonFeeder extends BaseES {
             put("village", 985d);
             put("hamlet", 980d);
             put("locality", 975d);
-            
+
             put("bus_stop", 120d);
             put("motorway_junction", 110d);
 
@@ -310,22 +313,22 @@ public class JsonFeeder extends BaseES {
             put("tertiary", 50d);
             put("tertiary_link", 40d);
             put("unclassified", 30d);
-            put("residential", 30d);            
+            put("residential", 30d);
             put("service", 20d);
             // unknown road
             put("road", 20d);
             // forestry stuff
             put("track", 20d);
-            
+
             put("cycleway", 14d);
             put("path", 10d);
-            
+
             // spielstraße
             put("living_street", 5d);
-            put("footway", 5d);            
+            put("footway", 5d);
             put("pedestrian", 5d);
 
-            put("steps", 3d);            
+            put("steps", 3d);
         }
     };
 

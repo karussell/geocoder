@@ -6,7 +6,6 @@ import com.graphhopper.util.DistanceCalc;
 import com.graphhopper.util.DistancePlaneProjection;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.shapes.BBox;
-import com.graphhopper.util.shapes.GHPoint;
 import gnu.trove.procedure.TIntProcedure;
 import gnu.trove.set.hash.TIntHashSet;
 import java.util.ArrayList;
@@ -102,8 +101,8 @@ public class BoundaryIndex {
     /**
      * Search the closest info object to the specified query coordinates.
      *
-     * @param maxDist return the info object ONLY IF the calculated distance is smaller
-     * than maxDist
+     * @param maxDist return the info object ONLY IF the calculated distance is
+     * smaller than maxDist
      */
     public Info searchClosest(double queryLat, double queryLon, double maxDist) {
         Info closest = null;
@@ -130,79 +129,5 @@ public class BoundaryIndex {
         if (maxDist < distance)
             return null;
         return closest;
-    }
-
-    public static class Info {
-
-        final GHPoint center;
-        // every PointList represents a polygon
-        final List<PointList> polygons;
-        final BBox bbox;
-        final List<String> isIn;
-        final double area;
-
-        public Info(GHPoint center, List<PointList> polygons, List<String> isIn) {
-            this.center = center;
-            this.polygons = polygons;
-            this.isIn = isIn;
-            bbox = BBox.INVERSE.clone();
-            double tmpArea = 0;
-            for (PointList pl : polygons) {
-                int size = pl.size();
-                if (!pl.toGHPoint(0).equals(pl.toGHPoint(size - 1)))
-                    throw new IllegalStateException("polygon should end and start with same point " + isIn);
-
-                tmpArea += GeocoderHelper.calcAreaGH(pl);
-                for (int index = 0; index < size; index++) {
-                    double lat = pl.getLatitude(index);
-                    double lon = pl.getLongitude(index);
-                    if (lat > bbox.maxLat)
-                        bbox.maxLat = lat;
-
-                    if (lat < bbox.minLat)
-                        bbox.minLat = lat;
-
-                    if (lon > bbox.maxLon)
-                        bbox.maxLon = lon;
-
-                    if (lon < bbox.minLon)
-                        bbox.minLon = lon;
-                }
-            }
-            area = tmpArea;
-        }
-
-        public boolean contains(double queryLat, double queryLon) {
-            if (!bbox.contains(queryLat, queryLon))
-                return false;
-
-            for (PointList pl : polygons) {
-                int size = pl.size();
-                if (size == 0)
-                    continue;
-
-                boolean contains = false;
-                // http://stackoverflow.com/a/2922778/194609
-                for (int i = 0, j = size - 1; i < size; j = i++) {
-                    double latI = pl.getLatitude(i), lonI = pl.getLongitude(i);
-                    double latJ = pl.getLatitude(j), lonJ = pl.getLongitude(j);
-                    if (((latI > queryLat) != (latJ > queryLat))
-                            && (queryLon < (lonJ - lonI) * (queryLat - latI) / (latJ - latI) + lonI))
-                        contains = !contains;
-                }
-                if (contains)
-                    return true;
-            }
-            return false;
-        }
-
-        public double calculateDistance(double lat, double lon) {
-            return distCalc.calcDist(center.lat, center.lon, lat, lon);
-        }
-
-        @Override
-        public String toString() {
-            return center + " " + isIn;
-        }
     }
 }

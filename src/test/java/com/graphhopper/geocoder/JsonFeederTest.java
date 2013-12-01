@@ -24,8 +24,8 @@ import static org.junit.Assert.*;
 public class JsonFeederTest extends AbstractNodesTests {
 
     protected static Client client;
-    private String osmIndex = "osm";
-    private String osmType = "osmobject";
+    private final String osmIndex = "osm";
+    private final String osmType = "osmobject";
     private JsonFeeder feeder;
     private QueryHandler queryHandler;
 
