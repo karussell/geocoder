@@ -19,8 +19,10 @@ public class Info {
     private final BBox bbox;
     private final List<String> isIn;
     private final double area;
+    private final String id;
 
-    public Info(GHPoint center, List<PointList> polygons, List<String> isIn) {
+    public Info(String id, GHPoint center, List<PointList> polygons, List<String> isIn) {
+        this.id = id;
         this.center = center;
         this.polygons = polygons;
         this.isIn = isIn;
@@ -80,6 +82,6 @@ public class Info {
 
     @Override
     public String toString() {
-        return center + " " + isIn;
+        return id + " " + center + " " + isIn;
     }
 }

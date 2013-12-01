@@ -1,10 +1,23 @@
-// TODO how to determine bounding box for boudingIndex before? stored in elasticsearch from JsonFeeder?
+big problems:
+    lots of places have no boundary => distance heuristic + clustering via graphhopper
+    hierarchy of boundaries required to find out 'is_in'
+    some boundaries have no center node    
+    determine admin_level from is_in just via counter--? and then assign country, city, ...? for a better layout of the suggestions 
+
+how to determine bounding box for boudingIndex before? stored in elasticsearch from JsonFeeder?
+copy is_in into name (and keep name in orig_name) also for cities with no bounding handling!
+birkenstraße leipzig -> 4259951
+    => cannot find boundary? [12.3367448, 51.3342058]
+    => boundary has no admin_center! http://www.openstreetmap.org/relation/62649
+how to boost streets of bigger cities more -> assign with the same population?
+
+mist: "is_in entfernt, obsolet, da Kreisgrenzen vorhanden"
+    baue admin_level hierarchy auf!!
+    auch notwendig für: more than one boundary found for osmnode/271409662 -> [osmnode/27362978|osmrelation/422336 51.1295496,12.8065842 [Muldentalkreis, Leipzig, Sachsen, Bundesrepublik Deutschland, Europe], osmnode/27362978|osmrelation/1356838 51.1295496,12.8065842 [Muldentalkreis, Leipzig, Sachsen, Bundesrepublik Deutschland, Europe]]
 
 street [no],[zipcode,] [near] city|village [province|county] [country]
     add 'near' if only a guess => is_near vs. is_in?
     allow multiple is_near
-
-# add location info (+ is_in) to every street!
 
 fix counter clock wise hack in calcArea
 integration and more unit tests - see below!!

@@ -28,7 +28,7 @@ public class BoundaryIndexTest {
         pl1.add(0, 0);
         polygons.add(pl1);
         List<String> isInList = new ArrayList<String>();
-        Info info = new Info(new GHPoint(), polygons, isInList);
+        Info info = new Info("1", new GHPoint(), polygons, isInList);
         index.add(info);
 
         polygons = new ArrayList<PointList>();
@@ -38,7 +38,7 @@ public class BoundaryIndexTest {
         pl2.add(0, 1);
         pl2.add(0, -1);
         polygons.add(pl2);
-        info = new Info(new GHPoint(), polygons, isInList);
+        info = new Info("2", new GHPoint(), polygons, isInList);
         index.add(info);
 
         Collection<Info> matchingBounds = index.searchContaining(0.8, 0.5);

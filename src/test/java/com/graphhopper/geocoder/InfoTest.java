@@ -24,7 +24,7 @@ public class InfoTest {
         pl1.add(0, 0);
         polygons.add(pl1);
         List<String> isInList = new ArrayList<String>();
-        Info info = new Info(point, polygons, isInList);
+        Info info = new Info("1", point, polygons, isInList);
         assertFalse(info.contains(-0.1, 0));
         assertFalse(info.contains(0.5, 0.2));
         assertTrue(info.contains(0.5, 0.9));
@@ -36,7 +36,7 @@ public class InfoTest {
         pl2.add(0, 1);
         pl2.add(0, -1);
         polygons.add(pl2);
-        info = new Info(point, polygons, isInList);
+        info = new Info("1", point, polygons, isInList);
         assertFalse(info.contains(-0.1, 0));
         assertTrue(info.contains(0.5, 0.2));
         assertFalse(info.contains(0.5, 0.9));
@@ -44,7 +44,7 @@ public class InfoTest {
         polygons.clear();
         polygons.add(pl1);
         polygons.add(pl2);
-        info = new Info(point, polygons, isInList);
+        info = new Info("1", point, polygons, isInList);
         assertFalse(info.contains(-0.1, 0));
         assertTrue(info.contains(0.3, 0.5));
         assertFalse(info.contains(0.6, 0.5));

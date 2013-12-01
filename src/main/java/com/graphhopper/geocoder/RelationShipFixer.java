@@ -45,11 +45,16 @@ public class RelationShipFixer extends BaseES {
     }
 
     public void start() {
+        logger.info("start!");
+        // TODO copyIsInIntoName();
+
         BoundaryIndex index = assignBoundaryToParent();
+        logger.info("updateEntries! index.size:" + index.size());
         updateEntries(index);
 
-        // TODO
+        logger.info("TODO updateUnassignedEntries");
         // if no boundary matched => calculate closest via distance to city, village, ...
+        // TODO updateUnassignedEntries();
         if (config.doOptimize()) {
             logger.info("Optimizing ...");
             client.admin().indices().optimize(new OptimizeRequest(osmIndex).maxNumSegments(1)).actionGet();
@@ -115,31 +120,33 @@ public class RelationShipFixer extends BaseES {
                         parentSource.put("type_rank", typeRank);
                     }
 
-                    parentSource.put("has_boundary", true);
+                    parentSource.put("has_fixed_boundary", true);
                     toFeed.add(new IndexRequest(osmIndex, osmType, parentId).source(parentSource));
                 }
 
-                List center = (List) parentSource.get("center");
                 List isIn = (List) parentSource.get("is_in");
                 if (isIn == null)
-                    logger.warn("is_in is null!? " + boundaryId + ", " + parentId);
+                    logger.warn("is_in is null for " + parentId + ", " + boundaryId);
+                else {
+                    GHPoint centerPoint = new GHPoint();
+                    List center = (List) parentSource.get("center");
+                    if (center != null) {
+                        centerPoint.lat = (Double) center.get(1);
+                        centerPoint.lon = (Double) center.get(0);
+                    } else {
+                        logger.warn("center is null for " + parentId + ", " + boundaryId);
+                    }
+                    List coordinates = (List) bounds.get("coordinates");
+                    List<PointList> polygonsToFeed = new ArrayList<PointList>(coordinates.size());
+                    for (Object o : coordinates) {
+                        List poly = (List) o;
+                        PointList list = GeocoderHelper.polygonListToPointList(poly);
+                        if (!list.isEmpty())
+                            polygonsToFeed.add(list);
+                    }
+                    index.add(new Info(parentId + "|" + boundaryId, centerPoint, polygonsToFeed, isIn));
+                }
 
-                GHPoint centerPoint = new GHPoint();
-                if (center != null) {
-                    centerPoint.lat = (Double) center.get(1);
-                    centerPoint.lon = (Double) center.get(0);
-                } else {
-                    logger.warn("center is null!? " + boundaryId + ", " + parentId);
-                }
-                List coordinates = (List) bounds.get("coordinates");
-                List<PointList> polygonsToFeed = new ArrayList<PointList>(coordinates.size());
-                for (Object o : coordinates) {
-                    List poly = (List) o;
-                    PointList list = GeocoderHelper.polygonListToPointList(poly);
-                    if (!list.isEmpty())
-                        polygonsToFeed.add(list);
-                }
-                index.add(new Info(centerPoint, polygonsToFeed, isIn));
                 toDelete.add(new DeleteRequest(osmIndex, osmType, boundaryId));
             }
         });
@@ -177,6 +184,8 @@ public class RelationShipFixer extends BaseES {
                 current++;
 
                 String id = scanSearchHit.getId();
+                if (id.contains("4259951"))
+                    id = id;
                 Map<String, Object> source = scanSearchHit.getSource();
                 List centerCoord = (List) source.get("center");
                 if (centerCoord == null || centerCoord.size() != 2) {
@@ -188,17 +197,42 @@ public class RelationShipFixer extends BaseES {
                 Double lon = (Double) centerCoord.get(0);
 
                 // TODO which info object should we select?
+                // we need to build a hierarchy of boundaries as we cannot rely on the fact that boundary always have is_in values
                 Collection<Info> list = index.searchContaining(lat, lon);
                 if (list.isEmpty()) {
-                    logger.warn("no boundaries found for " + id);
+                    // logger.warn("no boundaries found for " + id);
                     return;
                 } else if (list.size() == 2) {
                     logger.warn("more than one boundary found for " + id + " -> " + list);
                 }
                 Info info = list.iterator().next();
+                String name = (String) source.get("name");
+                if (name != null)
+                    source.put("orig_name", name);
+
+                source.put("name", getName(name, info.getIsIn()));
                 source.put("is_in", info.getIsIn());
-                logger.info("boundary matched " + id + " -> " + info.toString());
+                // logger.info("boundary matched " + id + " -> " + info.toString());
                 toFeed.add(new IndexRequest(osmIndex, osmType, id).source(source));
+            }
+
+            String getName(String name, List<String> isIn) {
+                if (name == null)
+                    name = "";
+
+                String previous = name.trim();
+                for (int i = 0; i < isIn.size(); i++) {
+                    String tmp = isIn.get(i).trim();
+                    if (tmp.equalsIgnoreCase(previous))
+                        continue;
+
+                    if (name.isEmpty())
+                        name = tmp;
+                    else
+                        name += ", " + tmp;
+                    previous = tmp;
+                }
+                return name.trim();
             }
         });
         flush();
@@ -259,6 +293,9 @@ public class RelationShipFixer extends BaseES {
             for (IndexRequest ir : toIndex) {
                 brb.add(ir);
             }
+            if (toIndex.size() == 0)
+                return;
+
 //            for (DeleteRequest dr : toDelete) {
 //                brb.add(dr);
 //            }
@@ -268,7 +305,8 @@ public class RelationShipFixer extends BaseES {
                 if (bur.isFailed())
                     failed++;
             }
-            logger.info(failed + " objects failed to reindex!");
+            if (failed > 0)
+                logger.warn(failed + " objects failed to reindex!");
         }
     }
 }

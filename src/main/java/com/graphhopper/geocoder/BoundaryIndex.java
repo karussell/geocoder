@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import org.elasticsearch.common.collect.IdentityHashSet;
 
 /**
  * @author Peter Karich
@@ -22,6 +23,7 @@ public class BoundaryIndex {
     private final List<List<Info>> boundaries;
     private final KeyAlgo keyAlgo;
     private final double deltaLat, deltaLon;
+    private int size;
 
     /**
      * @param b the maximum bounding box of this index
@@ -52,6 +54,7 @@ public class BoundaryIndex {
     }
 
     public void add(final Info info) {
+        size++;
         // determine all indices (keys) where we should store the polygon
         TIntHashSet allKeys = new TIntHashSet();
         for (PointList pl : info.polygons) {
@@ -75,9 +78,13 @@ public class BoundaryIndex {
             }
         });
     }
+    
+    public int size() {
+        return size;
+    }
 
     public Collection<Info> searchContaining(double queryLat, double queryLon) {
-        Collection<Info> res = new HashSet<Info>();
+        Collection<Info> res = new IdentityHashSet<Info>();
 
         // search around the matching tiles => 9 tiles
         double maxLat = queryLat + deltaLat;
