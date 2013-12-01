@@ -70,6 +70,10 @@ public class Info {
         return false;
     }
 
+    public List<String> getIsIn() {
+        return isIn;
+    }
+
     public double calculateDistance(double lat, double lon) {
         return distCalc.calcDist(center.lat, center.lon, lat, lon);
     }
@@ -78,5 +82,4 @@ public class Info {
     public String toString() {
         return center + " " + isIn;
     }
-
 }

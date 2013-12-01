@@ -266,6 +266,15 @@ public class GeocoderHelper {
         return list;
     }
 
+    public static PointList polygonListToPointList(List poly) {
+        PointList list = new PointList(poly.size());
+        for (Object o2 : poly) {
+            List coord = (List) o2;
+            list.add((Double) coord.get(1), (Double) coord.get(0));
+        }
+        return list;
+    }
+
     public static String encodeUrl(String value) {
         try {
             return URLEncoder.encode(value, "UTF-8");

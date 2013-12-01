@@ -74,11 +74,7 @@ public class JsonFeeder extends BaseES {
         processor.setDirectory(config.getIndexDir());
         processor.processNodes();
         processor.processWays();
-        processor.processRelations();
-        if (config.doOptimize()) {
-            logger.info("Optimizing ...");
-            client.admin().indices().optimize(new OptimizeRequest(osmIndex).maxNumSegments(1)).actionGet();
-        }
+        processor.processRelations();       
     }
 
     public Collection<Integer> bulkUpdate(Collection<JsonObject> objects, String indexName, String indexType) {

@@ -1,3 +1,5 @@
+// TODO how to determine bounding box for boudingIndex before? stored in elasticsearch from JsonFeeder?
+
 street [no],[zipcode,] [near] city|village [province|county] [country]
     add 'near' if only a guess => is_near vs. is_in?
     allow multiple is_near
@@ -20,21 +22,14 @@ release!
 ########
     see graphhopper TODO.txt for all possible announcements ;)
 
-improve simplify - e.g. skip coordinate only if area increases
-    decrease geocoder.smallboundary to include calling simplify again!
-
 nice: https://github.com/brunob/leaflet.fullscreen
 nice title: Instant Routing with GraphHopper. Innovation beyond Google Maps?
 
-gorbitz is_in Dresden,Dresden,Dresden,Sachsen why 3 times dresden ?
-    Gorbitz, Cotta, Dresden, Sachsen, Deutschland, Europäische Union
-    include admin_level == 9 can be districts of a city like dresden cotta    
-
-optimize storage: 
-  POIs => instead separate entity add to street ala street.pois{name_0=sxc,number_0=1a,latlon_0=53,49.0, ..}  
 fine tuning
   * clustering of nodes to calculate bounds of villages!
     https://github.com/Leaflet/Leaflet.markercluster
+  * improve simplify - e.g. skip coordinate only if area increases. decrease geocoder.smallboundary to include calling simplify again!
+  * optimize storage: POIs => instead separate entity add an 'poi' array to the street [{name_0=somename,number_0=1a,latlon_0=53,49.0}, {}]
   * instead of population => calculate area and sort by area? => more complete data!
     also include type for sorting! town, city, village, hamlet, locality
   * boost streets (e.g. not bus_stop)

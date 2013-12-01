@@ -1,7 +1,14 @@
 package com.graphhopper.geocoder;
 
+import com.graphhopper.util.PointList;
+import com.graphhopper.util.shapes.BBox;
+import com.graphhopper.util.shapes.GHPoint;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
+import org.elasticsearch.action.admin.indices.optimize.OptimizeRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -11,7 +18,6 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.FilterBuilder;
 import org.elasticsearch.index.query.FilterBuilders;
@@ -39,21 +45,29 @@ public class RelationShipFixer extends BaseES {
     }
 
     public void start() {
-        assignBoundaryToParent();
-        updateEntries();
+        BoundaryIndex index = assignBoundaryToParent();
+        updateEntries(index);
 
         // TODO
         // if no boundary matched => calculate closest via distance to city, village, ...
+        if (config.doOptimize()) {
+            logger.info("Optimizing ...");
+            client.admin().indices().optimize(new OptimizeRequest(osmIndex).maxNumSegments(1)).actionGet();
+        }
     }
 
     /**
      * get all boundaries and merge with its parents
      */
-    private void assignBoundaryToParent() {
+    private BoundaryIndex assignBoundaryToParent() {
+        // TODO how to determine this upfront -> stored in elasticsearch from JsonFeeder?        
+        BBox bbox = new BBox(9.84375, 13.820801, 50.415519, 52.268157);
+        final BoundaryIndex index = new BoundaryIndex(bbox, 10000);
         SearchResponse rsp = createScan(FilterBuilders.termFilter("has_boundary", true)).get();
         scroll(rsp, new SimpleExecute() {
 
-            @Override public void handle(SearchHit scanSearchHit) {
+            @Override public void handle(SearchHit scanSearchHit,
+                    List<IndexRequest> toFeed, List<DeleteRequest> toDelete) {
                 current++;
 
                 String boundaryId = scanSearchHit.getId();
@@ -80,45 +94,57 @@ public class RelationShipFixer extends BaseES {
 
                 SearchHit parent = rsp.getHits().getHits()[0];
                 String parentId = parent.getId();
-                try {
-                    Map<String, Object> parentSource = parent.getSource();
+                Map<String, Object> parentSource = parent.getSource();
+                if (parentSource.containsKey("bounds")) {
+                    logger.info("Parent " + parentId + " already contains boundary. It was: " + boundaryId);
+                } else {
+                    parentSource.put("bounds", bounds);
 
-                    if (parentSource.containsKey("bounds")) {
-                        logger.info("Parent " + parentId + " already contains boundary. It was: " + boundaryId);
-                    } else {
-                        parentSource.put("bounds", bounds);
-
-                        if (!parentSource.containsKey("admin_level")) {
-                            Integer adminLevel = (Integer) boundarySource.get("admin_level");
-                            parentSource.put("admin_level", adminLevel);
-                        }
-
-                        if (!parentSource.containsKey("wikipedia")) {
-                            String wikipedia = (String) boundarySource.get("wikipedia");
-                            parentSource.put("wikipedia", wikipedia);
-                        }
-
-                        if (!parentSource.containsKey("type_rank")) {
-                            String typeRank = (String) boundarySource.get("type_rank");
-                            parentSource.put("type_rank", typeRank);
-                        }
-
-                        parentSource.put("has_boundary", true);
-                        // TODO can we omit get() here?
-                        client.index(new IndexRequest(osmIndex, osmType, parentId).source(parentSource)).get();
+                    if (!parentSource.containsKey("admin_level")) {
+                        Integer adminLevel = (Integer) boundarySource.get("admin_level");
+                        parentSource.put("admin_level", adminLevel);
                     }
-                } catch (Exception ex) {
-                    logger.error("Problem while feeding parent " + parentId + " of boundary " + boundaryId, ex);
+
+                    if (!parentSource.containsKey("wikipedia")) {
+                        String wikipedia = (String) boundarySource.get("wikipedia");
+                        parentSource.put("wikipedia", wikipedia);
+                    }
+
+                    if (!parentSource.containsKey("type_rank")) {
+                        String typeRank = (String) boundarySource.get("type_rank");
+                        parentSource.put("type_rank", typeRank);
+                    }
+
+                    parentSource.put("has_boundary", true);
+                    toFeed.add(new IndexRequest(osmIndex, osmType, parentId).source(parentSource));
                 }
 
-                try {
-                    client.delete(new DeleteRequest(osmIndex, osmType, boundaryId)).get();
-                } catch (Exception ex) {
-                    logger.error("Problem while deleting " + boundaryId, ex);
+                List center = (List) parentSource.get("center");
+                List isIn = (List) parentSource.get("is_in");
+                if (isIn == null)
+                    logger.warn("is_in is null!? " + boundaryId + ", " + parentId);
+
+                GHPoint centerPoint = new GHPoint();
+                if (center != null) {
+                    centerPoint.lat = (Double) center.get(1);
+                    centerPoint.lon = (Double) center.get(0);
+                } else {
+                    logger.warn("center is null!? " + boundaryId + ", " + parentId);
                 }
+                List coordinates = (List) bounds.get("coordinates");
+                List<PointList> polygonsToFeed = new ArrayList<PointList>(coordinates.size());
+                for (Object o : coordinates) {
+                    List poly = (List) o;
+                    PointList list = GeocoderHelper.polygonListToPointList(poly);
+                    if (!list.isEmpty())
+                        polygonsToFeed.add(list);
+                }
+                index.add(new Info(centerPoint, polygonsToFeed, isIn));
+                toDelete.add(new DeleteRequest(osmIndex, osmType, boundaryId));
             }
         });
-        client.admin().indices().flush(new FlushRequest(osmIndex)).actionGet();
+        flush();
+        return index;
     }
 
     SearchRequestBuilder createScan(FilterBuilder filter) {
@@ -141,31 +167,67 @@ public class RelationShipFixer extends BaseES {
      * associated boundary with BoundaryIndex.search and feed the updated entry
      * which should then contain is_in information and the city/village etc
      */
-    private void updateEntries() {
+    private void updateEntries(final BoundaryIndex index) {
         FilterBuilder filter = FilterBuilders.notFilter(FilterBuilders.existsFilter("is_in"));
         SearchResponse rsp = createScan(filter).get();
         scroll(rsp, new SimpleExecute() {
 
-            @Override public void handle(SearchHit scanSearchHit) {
+            @Override public void handle(SearchHit scanSearchHit,
+                    List<IndexRequest> toFeed, List<DeleteRequest> toDelete) {
                 current++;
 
+                String id = scanSearchHit.getId();
+                Map<String, Object> source = scanSearchHit.getSource();
+                List centerCoord = (List) source.get("center");
+                if (centerCoord == null || centerCoord.size() != 2) {
+                    logger.warn(id + " object has no center or center has not 2 entries: " + centerCoord);
+                    return;
+                }
+
+                Double lat = (Double) centerCoord.get(1);
+                Double lon = (Double) centerCoord.get(0);
+
+                // TODO which info object should we select?
+                Collection<Info> list = index.searchContaining(lat, lon);
+                if (list.isEmpty()) {
+                    logger.warn("no boundaries found for " + id);
+                    return;
+                } else if (list.size() == 2) {
+                    logger.warn("more than one boundary found for " + id + " -> " + list);
+                }
+                Info info = list.iterator().next();
+                source.put("is_in", info.getIsIn());
+                logger.info("boundary matched " + id + " -> " + info.toString());
+                toFeed.add(new IndexRequest(osmIndex, osmType, id).source(source));
             }
         });
+        flush();
     }
 
-    abstract class SimpleExecute implements Execute {
+    private void flush() {
+        client.admin().indices().flush(new FlushRequest(osmIndex)).actionGet();
+    }
+
+    public class SimpleExecute {
 
         long total;
         long current;
         long lastTime;
         float timePerCall = -1;
 
-        @Override public void init(SearchResponse nextScroll) {
+        protected void init(SearchResponse nextScroll) {
             total = nextScroll.getHits().getTotalHits();
             if (timePerCall >= 0) {
                 timePerCall = (float) (System.nanoTime() - lastTime) / 1000000;
             }
             lastTime = System.nanoTime();
+        }
+
+        /**
+         * @param scanSearchHit input
+         * @param toFeed output which should be feeded
+         */
+        public void handle(SearchHit scanSearchHit, List<IndexRequest> toFeed, List<DeleteRequest> toDelete) {
         }
 
         protected void logInfo() {
@@ -179,14 +241,7 @@ public class RelationShipFixer extends BaseES {
         Map<String, Object> rewrite(Map<String, Object> input);
     }
 
-    public static interface Execute {
-
-        void init(SearchResponse nextScroll);
-
-        void handle(SearchHit sh);
-    }
-
-    public void scroll(SearchResponse rsp, Execute exec) {
+    public void scroll(SearchResponse rsp, SimpleExecute exec) {
         while (true) {
             rsp = client.prepareSearchScroll(rsp.getScrollId()).
                     setScroll(TimeValue.timeValueMinutes(keepTimeInMinutes)).get();
@@ -194,30 +249,26 @@ public class RelationShipFixer extends BaseES {
                 break;
 
             exec.init(rsp);
-            for (SearchHit sh : rsp.getHits().getHits()) {
-                exec.handle(sh);
-            }
-        }
-    }
 
-    void bulky(SearchResponse rsp, Rewriter rewriter) {
-        int collectedResults = 0;
-        int failed = 0;
-        long total = rsp.getHits().totalHits();
-        BulkRequestBuilder brb = client.prepareBulk();
-        for (SearchHit sh : rsp.getHits().getHits()) {
-            String id = sh.getId();
-            Map<String, Object> sourceMap = rewriter.rewrite(sh.getSource());
-            IndexRequest indexReq = Requests.indexRequest(osmIndex).type(osmType).id(id).source(sourceMap);
-            brb.add(indexReq);
+            List<IndexRequest> toIndex = new ArrayList<IndexRequest>();
+            List<DeleteRequest> toDelete = new ArrayList<DeleteRequest>();
+            for (SearchHit sh : rsp.getHits().getHits()) {
+                exec.handle(sh, toIndex, toDelete);
+            }
+            BulkRequestBuilder brb = client.prepareBulk();
+            for (IndexRequest ir : toIndex) {
+                brb.add(ir);
+            }
+//            for (DeleteRequest dr : toDelete) {
+//                brb.add(dr);
+//            }
+            BulkResponse bulkRsp = brb.get();
+            int failed = 0;
+            for (BulkItemResponse bur : bulkRsp.getItems()) {
+                if (bur.isFailed())
+                    failed++;
+            }
+            logger.info(failed + " objects failed to reindex!");
         }
-        BulkResponse bulkRsp = brb.get();
-        for (BulkItemResponse bur : bulkRsp.getItems()) {
-            if (bur.isFailed())
-                failed++;
-        }
-        collectedResults += rsp.getHits().hits().length;
-        logger.debug("Progress " + collectedResults + "/" + total
-                + ", failed:" + failed);
     }
 }

@@ -23,14 +23,18 @@ public class BoundaryIndex {
     private final KeyAlgo keyAlgo;
     private final double deltaLat, deltaLon;
 
+    /**
+     * @param b the maximum bounding box of this index
+     * @param distance the width of the tiles used in this index. Unit is meter.
+     */
     public BoundaryIndex(BBox b, double distance) {
 
         // every tile is 10*10km^2 big
         // double dist = 10 * 1000;
-        double maxLat = distCalc.calcDist(b.minLat, b.minLon, b.minLat, b.maxLon);
-        double maxLon = distCalc.calcDist(b.minLat, b.minLon, b.maxLat, b.minLon);
-        int latTiles = (int) (maxLat / distance);
-        int lonTiles = (int) (maxLon / distance);
+        double maxLatDist = distCalc.calcDist(b.minLat, b.minLon, b.minLat, b.maxLon);
+        double maxLonDist = distCalc.calcDist(b.minLat, b.minLon, b.maxLat, b.minLon);
+        int latTiles = (int) (maxLatDist / distance);
+        int lonTiles = (int) (maxLonDist / distance);
         if (latTiles == 0)
             latTiles++;
         if (lonTiles == 0)
