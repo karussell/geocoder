@@ -31,6 +31,8 @@ if [ "x$ACTION" = "xfeed" ]; then
   "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.geocoder.JsonFeeder
 elif [ "x$ACTION" = "xserver" ]; then
   "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.geocoder.http.HttpServerMain
-else
+elif [ "x$ACTION" = "xfixer" ]; then
+  "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.geocoder.RelationShipFixer
+else    
   echo unknown action $ACTION
 fi
