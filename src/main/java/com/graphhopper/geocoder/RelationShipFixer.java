@@ -66,7 +66,7 @@ public class RelationShipFixer extends BaseES {
      */
     private BoundaryIndex assignBoundaryToParent() {
         // TODO how to determine this upfront -> stored in elasticsearch from JsonFeeder?        
-        BBox bbox = new BBox(9.84375, 13.820801, 50.415519, 52.268157);
+        BBox bbox = new BBox(-2, 19, 46, 57);
         final BoundaryIndex index = new BoundaryIndex(bbox, 10000);
         SearchResponse rsp = createScan(FilterBuilders.termFilter("has_boundary", true)).get();
         scroll(rsp, new SimpleExecute() {
@@ -136,18 +136,33 @@ public class RelationShipFixer extends BaseES {
                     } else {
                         logger.warn("center is null for " + parentId + ", " + boundaryId);
                     }
-                    List coordinates = (List) bounds.get("coordinates");
-                    List<PointList> polygonsToFeed = new ArrayList<PointList>(coordinates.size());
-                    for (Object o : coordinates) {
-                        List poly = (List) o;
-                        PointList list = GeocoderHelper.polygonListToPointList(poly);
-                        if (!list.isEmpty())
-                            polygonsToFeed.add(list);
-                    }
+
+                    List<PointList> polygonsToFeed = getPointLists(bounds);
                     index.add(new Info(parentId + "|" + boundaryId, centerPoint, polygonsToFeed, isIn));
                 }
 
                 toDelete.add(new DeleteRequest(osmIndex, osmType, boundaryId));
+            }
+
+            List<PointList> getPointLists(Map<String, Object> bounds) {
+                List coordinates = (List) bounds.get("coordinates");
+                List<PointList> polygonsToFeed = new ArrayList<PointList>(coordinates.size());
+                if (((String) bounds.get("type")).equalsIgnoreCase("multipolygon")) {
+                    // no special handling
+                } else {
+                    List tmp = new ArrayList(1);
+                    tmp.add(coordinates);
+                    coordinates = tmp;
+                }
+
+                for (Object polyWithHoles : coordinates) {
+                    // ignore holes for now:
+                    List poly = (List) ((List) polyWithHoles).get(0);
+                    PointList list = GeocoderHelper.polygonListToPointList(poly);
+                    if (!list.isEmpty())
+                        polygonsToFeed.add(list);
+                }
+                return polygonsToFeed;
             }
         });
         flush();
