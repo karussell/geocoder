@@ -1,3 +1,8 @@
+TODO bbox of suggestions. size*2 indicates that there are more different solutions
+    => instead suggestions in the dropdown => do suggestions via markers directly on the map!
+
+make it possible to get more suggestions -> more button -> and then? paging?
+
 smaller suggestions or more lines
     how to separat street and city from the rest?
     Layout:

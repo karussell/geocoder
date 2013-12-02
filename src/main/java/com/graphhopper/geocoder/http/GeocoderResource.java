@@ -37,7 +37,7 @@ public class GeocoderResource {
             @QueryParam("suggest") boolean suggest,
             @DefaultValue("10")
             @QueryParam("size") int size,
-            @DefaultValue("false")
+            @DefaultValue("true")
             @QueryParam("withBounds") boolean withBounds
     /*@QueryParam("locale") String locale, 
      @QueryParam("boostNear") Coord boostNearPoint, 
