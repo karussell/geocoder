@@ -1,26 +1,43 @@
+smaller suggestions or more lines
+    how to separat street and city from the rest?
+    Layout:
+       Am Mainflecklein, Bayreuth
+       95444, Bayern, Bundesrepublik Deutschland, Europe
+       bus_stop -> as icon -> on the right?
+    do suggestions on name but display via 
+       street, location=(town,city,village,...), zipcode, country, streetnumber
+introduce skip=geometry parameter to speed up fetching for mobile clients!
+neukölln has a boundary but erlangerstraße has nothing associated -> should at least get the name!
+    two identical neukölln boundaries with different center!?
+
+setup integration tests! via javascript fetching from live installation?
+better zoom scale -> use suggestions to determine whole area?
+better suggestions: how to cluster results e.g. to reduce suggestions for "Am Mainflecklein"
+    we could do a facet over the result and visualize this somehow!
+
+if one term consists only from numbers but more than 3 => assume postcode => do prefix query against address.postcode or include to normal query if not last term
+
+erlangerstraße should also suggest "erlanger straße"
+    Karl-Liebknecht-Straße should suggest itself -> this is ok: "Karl-Liebknecht Straße"
+
+some boundaries have no center node -> search by name!
+    check with birkenstraße leipzig -> 4259951
+
 big problems:
-    lots of places have no boundary => distance heuristic + clustering via graphhopper
-    hierarchy of boundaries required to find out 'is_in'
-    some boundaries have no center node    
-    determine admin_level from is_in just via counter--? and then assign country, city, ...? for a better layout of the suggestions 
+  lots of places have no boundary => distance heuristic + clustering via graphhopper
+  hierarchy of boundaries required to find out 'is_in'    
+        determine admin_level from is_in just via counter--? and then assign country, city, ...? for a better layout of the suggestions 
+  import buildings as well -> for numbers!
 
 how to determine bounding box for boudingIndex before? stored in elasticsearch from JsonFeeder?
 copy is_in into name (and keep name in orig_name) also for cities with no bounding handling!
-birkenstraße leipzig -> 4259951
-    => cannot find boundary? [12.3367448, 51.3342058]
-    => boundary has no admin_center! http://www.openstreetmap.org/relation/62649
 how to boost streets of bigger cities more -> assign with the same population?
-
-mist: "is_in entfernt, obsolet, da Kreisgrenzen vorhanden"
-    baue admin_level hierarchy auf!!
-    auch notwendig für: more than one boundary found for osmnode/271409662 -> [osmnode/27362978|osmrelation/422336 51.1295496,12.8065842 [Muldentalkreis, Leipzig, Sachsen, Bundesrepublik Deutschland, Europe], osmnode/27362978|osmrelation/1356838 51.1295496,12.8065842 [Muldentalkreis, Leipzig, Sachsen, Bundesrepublik Deutschland, Europe]]
 
 street [no],[zipcode,] [near] city|village [province|county] [country]
     add 'near' if only a guess => is_near vs. is_in?
     allow multiple is_near
 
 fix counter clock wise hack in calcArea
-integration and more unit tests - see below!!
 if ambiguity is detected for a name => display it beneath the input
   find duplicate streets in Berlin => check zipcode or other different info
     torstraße, bergstraße, mind. 3 Wrangelstraßen

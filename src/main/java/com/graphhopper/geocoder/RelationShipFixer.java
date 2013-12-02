@@ -1,6 +1,7 @@
 package com.graphhopper.geocoder;
 
 import com.graphhopper.util.PointList;
+import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
 import com.graphhopper.util.shapes.GHPoint;
 import java.util.ArrayList;
@@ -45,20 +46,22 @@ public class RelationShipFixer extends BaseES {
     }
 
     public void start() {
+        StopWatch sw = new StopWatch().start();
         logger.info("start!");
         // TODO copyIsInIntoName();
 
         BoundaryIndex index = assignBoundaryToParent();
         logger.info("updateEntries! index.size:" + index.size());
         updateEntries(index);
-
-        logger.info("TODO updateUnassignedEntries");
+        
         // if no boundary matched => calculate closest via distance to city, village, ...
         // TODO updateUnassignedEntries();
         if (config.doOptimize()) {
             logger.info("Optimizing ...");
             client.admin().indices().optimize(new OptimizeRequest(osmIndex).maxNumSegments(1)).actionGet();
         }
+        
+        logger.info("finished in " + sw.stop().getSeconds() + "s");
     }
 
     /**
