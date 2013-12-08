@@ -1,79 +1,71 @@
-TODO bbox of suggestions. size*2 indicates that there are more different solutions
-    => instead suggestions in the dropdown => do suggestions via markers directly on the map!
+# world wide!
+    increase number of open files to 100000 http://www.cyberciti.biz/faq/linux-increase-the-maximum-number-of-open-files/
 
-make it possible to get more suggestions -> more button -> and then? paging?
-
-smaller suggestions or more lines
-    how to separat street and city from the rest?
-    Layout:
-       Am Mainflecklein, Bayreuth
-       95444, Bayern, Bundesrepublik Deutschland, Europe
-       bus_stop -> as icon -> on the right?
-    do suggestions on name but display via 
-       street, location=(town,city,village,...), zipcode, country, streetnumber
-introduce skip=geometry parameter to speed up fetching for mobile clients!
-neukölln has a boundary but erlangerstraße has nothing associated -> should at least get the name!
-    two identical neukölln boundaries with different center!?
+# schöne werbeseite -> aus bayreuth http://www.feuerpfeil.de/
+  www.24plus.de, active-logistics.com
+  info@lbs-spediteure.de
 
 setup integration tests! via javascript fetching from live installation?
-better zoom scale -> use suggestions to determine whole area?
-better suggestions: how to cluster results e.g. to reduce suggestions for "Am Mainflecklein"
-    we could do a facet over the result and visualize this somehow!
 
-if one term consists only from numbers but more than 3 => assume postcode => do prefix query against address.postcode or include to normal query if not last term
+minor improvements
+    neukölln has a boundary but erlangerstraße has nothing associated -> should at least get the name!
+        two identical neukölln boundaries with different center!?
+    icon for every type like bus_stop
+    some boundaries have no center node -> search by name!
+        check with birkenstraße leipzig -> 4259951
+    how to determine bounding box for boudingIndex before? stored in elasticsearch from JsonFeeder?
+    copy is_in into name (and keep name in orig_name) also for cities with no bounding handling!
+    how to boost streets of bigger cities more -> assign with the same population?
+    instead of population => calculate area and sort by area? => more complete data!
+       also include type for sorting! town, city, village, hamlet, locality
+    synonyms like nyc
+    support somehow names.lang!
+    if one term consists only from numbers but more than 3 => assume postcode => do prefix query against address.postcode or include to normal query if not last term
 
-erlangerstraße should also suggest "erlanger straße"
-    Karl-Liebknecht-Straße should suggest itself -> this is ok: "Karl-Liebknecht Straße"
+# make it possible to get more suggestions -> more button -> and then? paging?
+    put all suggestions via markers directly on the map and popup if selected. already necessary for 'bremen'
+# split irgendwasstrasse => irgendwasstraße UND umlaute normalisieren! -> decompound plugin (GPL :()
+    erlangerstraße should also suggest "erlanger straße"; Karl-Liebknecht-Straße should suggest itself -> this is ok: "Karl-Liebknecht Straße"
+    phonetic analyzer => umlaute and ph/f and more
+# cluster results e.g. to reduce suggestions for "Am Mainflecklein"
+    we could do a facet over the result and visualize this somehow! or: cluster while indexing!
+    name:Am Mainflecklein; osm_0:123; coord_0:1,1; osmid_1:234; coord_1:2,2; ...
 
-some boundaries have no center node -> search by name!
-    check with birkenstraße leipzig -> 4259951
-
-big problems:
-  lots of places have no boundary => distance heuristic + clustering via graphhopper
-  hierarchy of boundaries required to find out 'is_in'    
+## lots of places have no boundary => distance heuristic + clustering via graphhopper
+## multi line suggestion -> important to determine the name + associated correct admin_level
+    Am Mainflecklein, Bayreuth
+    95444, Bayern, Bundesrepublik Deutschland, Europe
+    so do suggestions on name but display via 
+        street, location=(town,city,village,...), zipcode, country, streetnumber
+    hierarchy of boundaries required to find out 'is_in'    
         determine admin_level from is_in just via counter--? and then assign country, city, ...? for a better layout of the suggestions 
-  import buildings as well -> for numbers!
-
-how to determine bounding box for boudingIndex before? stored in elasticsearch from JsonFeeder?
-copy is_in into name (and keep name in orig_name) also for cities with no bounding handling!
-how to boost streets of bigger cities more -> assign with the same population?
-
-street [no],[zipcode,] [near] city|village [province|county] [country]
-    add 'near' if only a guess => is_near vs. is_in?
-    allow multiple is_near
-
-fix counter clock wise hack in calcArea
-if ambiguity is detected for a name => display it beneath the input
-  find duplicate streets in Berlin => check zipcode or other different info
-    torstraße, bergstraße, mind. 3 Wrangelstraßen
-  innovate with ambiguity detection -> click on '?' to get selection
-replace nominatim geocoding too! not only suggestions
-'more link' in suggestions e.g. already necessary for 'bremen'
-phonetic analyzer => umlaute and ph/f and more
-world wide!
-feed and search index can be different -> important for live situation!
+    street [no],[zipcode,] [near] city|village [province|county] [country]
+        add 'near' if only a guess => is_near vs. is_in?
+        allow multiple is_near
 
 release!
 ########
     see graphhopper TODO.txt for all possible announcements ;)
 
+# feed street numbers via buildings (?)
+fix counter clock wise hack in calcArea
+
+if ambiguity is detected for a name => display it beneath the input
+  find duplicate streets in Berlin => check zipcode or other different info
+    torstraße, bergstraße, mind. 3 Wrangelstraßen
+  innovate with ambiguity detection -> click on '?' to get selection
+replace nominatim geocoding too! not only suggestions
+
+feed and search index can be different -> important for live situation!
+
 nice: https://github.com/brunob/leaflet.fullscreen
 nice title: Instant Routing with GraphHopper. Innovation beyond Google Maps?
 
 fine tuning
-  * clustering of nodes to calculate bounds of villages!
-    https://github.com/Leaflet/Leaflet.markercluster
   * improve simplify - e.g. skip coordinate only if area increases. decrease geocoder.smallboundary to include calling simplify again!
-  * optimize storage: POIs => instead separate entity add an 'poi' array to the street [{name_0=somename,number_0=1a,latlon_0=53,49.0}, {}]
-  * instead of population => calculate area and sort by area? => more complete data!
-    also include type for sorting! town, city, village, hamlet, locality
   * boost streets (e.g. not bus_stop)
   * streetnumbers => 1-3 => 1,2,3 => komma, minus oder semicolon als trennzeichen bei hausnummern http://www.openstreetmap.org/user/okilimu/diary/20423
-  * synonyms like nyc
-  * if selecting a thing from suggester which has bounds => display them
-  * use calculated area from (multi)polygon! include in 'sort' for suggester (not only population)
-  * https://wiki.openstreetmap.org/wiki/Relation:multipolygon/Algorithm
-
+  
 # tune spatial key resolution for boundary simplification! why is time nearly identical??
     key=32: 1m27, simplified to 25%
     key=36: 1m25, simplified to 52%
@@ -88,9 +80,6 @@ can we fix this?
     2013-11-26 08:37:43,084 [main] WARN  graphhopper.geocoder.JsonFeeder - Cannot index object osmway/203816457. Error:MapperParsingException[failed to parse]; nested: JsonParseException[Non-standard token 'NaN': enable JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS to allow at [Source: [B@1242875; line: 1, column: 34]];
     jillesvangurp.osm2geojson.OsmPostProcessor$WayManager - second pointer was already assigned. node:1627882298, relId:2198517,Connewitz
     check if landkreis is skipped http://www.openstreetmap.org/browse/relation/62378 vs. stadt http://www.openstreetmap.org/browse/relation/62640   
-
-# new params: fuzzy=true/false (e.g. autocomplete should filter more aggressive -> no fuzzy?)
-              include not only 'nearby' (for geofilter) but also 'locale' for I18N search -> names.lang!
 
 # create integration test for bavaria
   one entity:    
@@ -109,6 +98,9 @@ can we fix this?
     fuzzy: grevenberg -> gräfenberg
     weiden oberpfalz -> falsche coords in nominatim
     neukirch -> ?? Neuve-Église, Sélestat-Erstein, Niederrhein, Elsass, Frankreich
+    kölln vs. köln! -> mit fuzzy geht das
+    koeln vs. köln -> see decompound plugin below or CharFilter
+    erlangerstraße vs. erlanger straße -> https://github.com/jprante/elasticsearch-analysis-decompound -> GPL!
   two entities
     Bahnhofstraße Bayreuth -> not Bindlach!    
     Hasloh Hagenkampsweg => nothing found although it found hasloh
@@ -122,6 +114,7 @@ can we fix this?
     Stresemannstr. 36, 10963 Berlin -> if missing number use existing number like 37
     berlin anhalterbhf or berlin anhalterbahnhof
   poi
+    dürerhof
     Checkpoint charlie Berlin vs charly
     Jugendherberge/LIMARE
     Bahnhof Bayreuth

@@ -13,7 +13,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,57 +51,42 @@ public class GeocoderResource {
             rsp = queryHandler.doRequest(address, size);
 
         long total = 0;
-        int searchSize = size * 2;
         List<Map<String, Object>> results = new ArrayList<Map<String, Object>>();
         if (rsp != null) {
             SearchHit[] sHits = rsp.getHits().getHits();
+            BBox bbox = BBox.INVERSE.clone();
             for (int i = 0; i < size && i < sHits.length; i++) {
                 SearchHit sh = sHits[i];
-                if (withBounds) {
-                    Map bounds = (Map) sh.getSource().get("bounds");
-                    if (bounds != null) {
-                        if (bounds.get("type").equals("polygon"))
-                            bounds.put("type", "Polygon");
-                        else if (bounds.get("type").equals("mulipolygon"))
-                            bounds.put("type", "MultiPolygon");
-                        else if (bounds.get("type").equals("linestring"))
-                            bounds.put("type", "LineString");
-                        sh.getSource().put("bounds", bounds);
-                    }
-                } else
+                if (!withBounds)
                     sh.getSource().remove("bounds");
 
                 results.add(sh.getSource());
+
+                List center = (List) sh.getSource().get("center");
+                if (center == null)
+                    continue;
+                double lat = (Double) center.get(1);
+                double lon = (Double) center.get(0);
+                if (lat > bbox.maxLat)
+                    bbox.maxLat = lat;
+
+                if (lat < bbox.minLat)
+                    bbox.minLat = lat;
+
+                if (lon > bbox.maxLon)
+                    bbox.maxLon = lon;
+
+                if (lon < bbox.minLon)
+                    bbox.minLon = lon;
             }
             total = rsp.getHits().getTotalHits();
 
-            if (sHits.length > 0) {
-                BBox bbox = BBox.INVERSE.clone();
-                for (SearchHit sh : rsp.getHits().getHits()) {
-                    List center = (List) sh.getSource().get("center");
-                    if (center == null)
-                        continue;
-                    double lat = (Double) center.get(1);
-                    double lon = (Double) center.get(0);
-                    if (lat > bbox.maxLat)
-                        bbox.maxLat = lat;
-
-                    if (lat < bbox.minLat)
-                        bbox.minLat = lat;
-
-                    if (lon > bbox.maxLon)
-                        bbox.maxLon = lon;
-
-                    if (lon < bbox.minLon)
-                        bbox.minLon = lon;
-                }
-                double epsilon = 0.0001;
-                bbox.maxLat += epsilon;
-                bbox.minLat -= epsilon;
-                bbox.maxLon += epsilon;
-                bbox.minLon -= epsilon;
-                json.put("approx_bbox", bbox.toGeoJson());
-            }
+            double epsilon = 0.0001;
+            bbox.maxLat += epsilon;
+            bbox.minLat -= epsilon;
+            bbox.maxLon += epsilon;
+            bbox.minLon -= epsilon;
+            json.put("approx_bbox", bbox.toGeoJson());
         }
 
         json.put("total", total);

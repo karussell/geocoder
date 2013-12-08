@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
-import org.elasticsearch.action.admin.indices.optimize.OptimizeRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -162,7 +161,7 @@ public class JsonFeeder extends BaseES {
                             result.put("has_boundary", true);
                         JsonArray polyBoundary = array();
                         polyBoundary.add(boundary);
-                        result.put("bounds", $(_("type", "polygon"),
+                        result.put("bounds", $(_("type", "Polygon"),
                                 _("coordinates", polyBoundary)));
                     }
 
@@ -207,7 +206,7 @@ public class JsonFeeder extends BaseES {
                     if (isBoundary)
                         result.put("has_boundary", true);
 
-                    result.put("bounds", $(_("type", "multipolygon"), _("coordinates", coordinates)));
+                    result.put("bounds", $(_("type", "MultiPolygon"), _("coordinates", coordinates)));
 
                 } else {
                     throw new IllegalStateException("wrong geometry format:" + key + " -> " + el.toString());
