@@ -27,7 +27,7 @@ else
   echo "## existing jar found $JAR"
 fi
 
-if [ "x$ACTION" = "xfeed" ]; then
+if [ "x$ACTION" = "xfeed" ] || [ "x$ACTION" = "xfeeder" ]; then
   "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.geocoder.JsonFeeder
 elif [ "x$ACTION" = "xserver" ]; then
   "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.geocoder.http.HttpServerMain

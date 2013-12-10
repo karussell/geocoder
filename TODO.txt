@@ -1,11 +1,12 @@
 # world wide!
     increase number of open files to 100000 http://www.cyberciti.biz/faq/linux-increase-the-maximum-number-of-open-files/
+    https://github.com/jillesvangurp/osm2geojson/issues/7
 
 # schöne werbeseite -> aus bayreuth http://www.feuerpfeil.de/
   www.24plus.de, active-logistics.com
   info@lbs-spediteure.de
 
-setup integration tests! via javascript fetching from live installation?
+add more integration tests -> german index on hserver -> filter bbox to limit world wide
 
 minor improvements
     neukölln has a boundary but erlangerstraße has nothing associated -> should at least get the name!
@@ -45,9 +46,8 @@ minor improvements
 
 release!
 ########
-    see graphhopper TODO.txt for all possible announcements ;)
 
-# feed street numbers via buildings (?)
+# feed street numbers via buildings
 fix counter clock wise hack in calcArea
 
 if ambiguity is detected for a name => display it beneath the input
