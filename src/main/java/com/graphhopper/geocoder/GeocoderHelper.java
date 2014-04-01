@@ -267,7 +267,7 @@ public class GeocoderHelper {
     }
 
     public static PointList polygonListToPointList(List poly) {
-        PointList list = new PointList(poly.size());
+        PointList list = new PointList(poly.size(), false);
         for (Object o2 : poly) {
             List coord = (List) o2;
             list.add((Double) coord.get(1), (Double) coord.get(0));
