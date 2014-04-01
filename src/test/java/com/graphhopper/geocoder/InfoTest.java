@@ -17,7 +17,7 @@ public class InfoTest {
     public void testContainsPoint() {
         GHPoint point = new GHPoint();
         List<PointList> polygons = new ArrayList<PointList>();
-        PointList pl1 = new PointList(3);
+        PointList pl1 = new PointList(3, false);
         pl1.add(0, 0);
         pl1.add(1, 1);
         pl1.add(0, 2);
@@ -30,7 +30,7 @@ public class InfoTest {
         assertTrue(info.contains(0.5, 0.9));
 
         polygons.clear();
-        PointList pl2 = new PointList(3);
+        PointList pl2 = new PointList(3, false);
         pl2.add(0, -1);
         pl2.add(1, 0);
         pl2.add(0, 1);

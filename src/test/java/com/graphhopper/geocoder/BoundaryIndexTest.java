@@ -21,7 +21,7 @@ public class BoundaryIndexTest {
         BoundaryIndex index = new BoundaryIndex(bbox, 100 * 1000);
 
         List<PointList> polygons = new ArrayList<PointList>();
-        PointList pl1 = new PointList(3);
+        PointList pl1 = new PointList(3, false);
         pl1.add(0, 0);
         pl1.add(1, 1);
         pl1.add(0, 2);
@@ -32,7 +32,7 @@ public class BoundaryIndexTest {
         index.add(info);
 
         polygons = new ArrayList<PointList>();
-        PointList pl2 = new PointList(3);
+        PointList pl2 = new PointList(3, false);
         pl2.add(0, -1);
         pl2.add(1, 0);
         pl2.add(0, 1);
